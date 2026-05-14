@@ -1,25 +1,21 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var cache = builder.AddRedis("cache");
+var cache = builder.AddRedis("cache")
+    .WithContainerName("altered-ownership-redis");
 
 var postgres = builder.AddPostgres("postgres")
+    .WithContainerName("altered-ownership-postgres")
     .WithDataVolume()
-    .WithPgAdmin();
+    .WithPgAdmin(pgadmin => pgadmin.WithContainerName("altered-ownership-pgadmin"));
 
 var ownershipDb = postgres.AddDatabase("ownershipdb");
 
-var server = builder.AddProject<Projects.AlteredOwnership_Server>("server")
+builder.AddProject<Projects.AlteredOwnership_Server>("altered")
     .WithReference(cache)
     .WaitFor(cache)
     .WithReference(ownershipDb)
     .WaitFor(ownershipDb)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints();
-
-var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
-    .WithReference(server)
-    .WaitFor(server);
-
-server.PublishWithContainerFiles(webfrontend, "wwwroot");
 
 builder.Build().Run();
