@@ -69,3 +69,6 @@ app.MapDefaultEndpoints();
 app.UseFileServer();
 
 app.Run();
+
+// Expose the generated Program class for WebApplicationFactory<Program> in tests.
+public partial class Program { }
