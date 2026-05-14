@@ -1,7 +1,8 @@
-using AlteredOwnership.Server.Auth;
 using AlteredOwnership.Server.Data;
+using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Endpoints;
-using AlteredOwnership.Server.Services;
+using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,7 +19,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddScoped<CollectionReader>();
-builder.Services.AddScoped<CollectionWriter>();
+builder.Services.AddScoped<CollectionImporter>();
+builder.Services.AddScoped<EventAppender>();
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 

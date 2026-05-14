@@ -1,7 +1,4 @@
-namespace AlteredOwnership.Server.Cards;
-using System.Collections.Generic;
-using System.Linq;
-
+namespace AlteredOwnership.Server.Domain;
 
 public static class CardReferenceParser
 {

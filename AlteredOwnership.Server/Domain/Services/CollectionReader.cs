@@ -2,7 +2,7 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace AlteredOwnership.Server.Services;
+namespace AlteredOwnership.Server.Domain.Services;
 
 public class CollectionReader(OwnershipDbContext db)
 {

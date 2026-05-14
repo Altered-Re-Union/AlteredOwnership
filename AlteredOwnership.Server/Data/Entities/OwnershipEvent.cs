@@ -1,7 +1,11 @@
 using System.Text.Json;
-using AlteredOwnership.Server.Events;
 
 namespace AlteredOwnership.Server.Data.Entities;
+
+public enum EventKind
+{
+    EquinoxImport = 1,
+}
 
 public class OwnershipEvent
 {

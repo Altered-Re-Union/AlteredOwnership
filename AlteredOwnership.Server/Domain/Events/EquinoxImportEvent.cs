@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using AlteredOwnership.Server.Cards;
+using AlteredOwnership.Server.Data.Entities;
 
-namespace AlteredOwnership.Server.Events;
+namespace AlteredOwnership.Server.Domain.Events;
 
 // All the logic for a single event kind lives in one file:
 // payload definition(s) per version, apply mutation, and validation.

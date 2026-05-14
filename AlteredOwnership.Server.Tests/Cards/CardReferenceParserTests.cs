@@ -1,4 +1,4 @@
-using AlteredOwnership.Server.Cards;
+using AlteredOwnership.Server.Domain;
 
 namespace AlteredOwnership.Server.Tests.Cards;
 

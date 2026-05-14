@@ -1,6 +1,7 @@
 using AlteredOwnership.Server.Data.Entities;
+using AlteredOwnership.Server.Domain.Events;
 
-namespace AlteredOwnership.Server.Events;
+namespace AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 public static class EventReplay
 {

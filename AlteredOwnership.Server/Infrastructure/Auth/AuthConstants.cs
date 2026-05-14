@@ -1,4 +1,4 @@
-namespace AlteredOwnership.Server.Auth;
+namespace AlteredOwnership.Server.Infrastructure.Auth;
 
 public static class AuthConstants
 {

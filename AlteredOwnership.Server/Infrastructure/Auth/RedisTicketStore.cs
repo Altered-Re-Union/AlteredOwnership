@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace AlteredOwnership.Server.Auth;
+namespace AlteredOwnership.Server.Infrastructure.Auth;
 
 // Cookie holds an opaque session key. The full AuthenticationTicket (claims +
 // access_token + refresh_token saved via SaveTokens=true on OIDC) lives in

@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using AlteredOwnership.Server.Auth;
+using AlteredOwnership.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;

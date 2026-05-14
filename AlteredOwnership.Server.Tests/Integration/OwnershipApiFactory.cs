@@ -1,4 +1,4 @@
-using AlteredOwnership.Server.Auth;
+using AlteredOwnership.Server.Infrastructure.Auth;
 using AlteredOwnership.Server.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;

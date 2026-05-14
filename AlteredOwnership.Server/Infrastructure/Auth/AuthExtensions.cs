@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
-namespace AlteredOwnership.Server.Auth;
+namespace AlteredOwnership.Server.Infrastructure.Auth;
 
 public static class AuthExtensions
 {

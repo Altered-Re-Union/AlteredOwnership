@@ -1,7 +1,8 @@
-using AlteredOwnership.Server.Auth;
-using AlteredOwnership.Server.Cards;
-using AlteredOwnership.Server.Events;
-using AlteredOwnership.Server.Services;
+using AlteredOwnership.Server.Domain;
+using AlteredOwnership.Server.Domain.Events;
+using AlteredOwnership.Server.Domain.Services;
+using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 namespace AlteredOwnership.Server.Endpoints;
 
@@ -32,7 +33,7 @@ public static class CollectionEndpoints
         group.MapPost("import", async (
             IFormFile file,
             CurrentUserAccessor currentUser,
-            CollectionWriter writer,
+            CollectionImporter importer,
             CancellationToken ct) =>
         {
             if (file.Length == 0)
@@ -56,7 +57,7 @@ public static class CollectionEndpoints
 
             try
             {
-                await writer.ImportAsync(userId, payload, ct);
+                await importer.ImportAsync(userId, payload, ct);
             }
             catch (DuplicateImportException)
             {

@@ -3,7 +3,7 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace AlteredOwnership.Server.Auth;
+namespace AlteredOwnership.Server.Infrastructure.Auth;
 
 // Resolves (and lazily provisions) the internal user from the Keycloak 'sub' claim.
 // Personal data stays in the Users table; everything downstream uses the internal Guid Id.

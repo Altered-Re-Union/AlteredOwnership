@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace AlteredOwnership.Server.Cards;
+namespace AlteredOwnership.Server.Domain;
 
 public static class EquinoxCsvParser
 {

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using AlteredOwnership.Server.Events;
+using AlteredOwnership.Server.Domain.Events;
 
 namespace AlteredOwnership.Server.Tests.Events;
 
