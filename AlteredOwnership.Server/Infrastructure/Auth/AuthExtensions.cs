@@ -100,6 +100,35 @@ public static class AuthExtensions
                     }
                     return Task.CompletedTask;
                 };
+
+                // Silent login: forward prompt=none to Keycloak when the SPA asks for it.
+                o.Events.OnRedirectToIdentityProvider = ctx =>
+                {
+                    if (ctx.Properties.Items.ContainsKey(AuthConstants.SilentLoginPropertyKey))
+                        ctx.ProtocolMessage.Prompt = "none";
+                    return Task.CompletedTask;
+                };
+
+                // Silent login failures (login_required / interaction_required) are not
+                // errors: the user simply has no SSO session. Swallow them and redirect
+                // back to where the SPA wanted to go so it can render the login button.
+                o.Events.OnRemoteFailure = ctx =>
+                {
+                    var msg = ctx.Failure?.Message ?? "";
+                    var isSilentRejection =
+                        msg.Contains("login_required", StringComparison.Ordinal)
+                        || msg.Contains("interaction_required", StringComparison.Ordinal)
+                        || msg.Contains("consent_required", StringComparison.Ordinal)
+                        || msg.Contains("account_selection_required", StringComparison.Ordinal);
+
+                    if (isSilentRejection)
+                    {
+                        var returnUrl = ctx.Properties?.RedirectUri is { Length: > 0 } r ? r : "/";
+                        ctx.Response.Redirect(returnUrl);
+                        ctx.HandleResponse();
+                    }
+                    return Task.CompletedTask;
+                };
             })
             .AddJwtBearer(AuthConstants.BearerScheme, o =>
             {

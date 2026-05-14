@@ -11,4 +11,6 @@ public static class AuthConstants
 
     public const string ReadScope = "read-collection";
     public const string WriteScope = "write-collection";
+
+    public const string SilentLoginPropertyKey = ".silent";
 }

@@ -16,11 +16,15 @@ public static class AuthEndpoints
         var group = routes.MapGroup("/api/auth");
 
         // Triggers the OIDC code flow. ?remember=true bumps absolute lifetime to 15j.
+        // ?silent=true sends prompt=none so an existing Keycloak SSO session can log
+        // the user in without a UI step. If no SSO session exists, Keycloak returns
+        // login_required and OnRemoteFailure quietly redirects back to returnUrl.
         group.MapGet("login", (
             HttpContext ctx,
             IOptions<KeycloakOptions> opts,
             [FromQuery] string? returnUrl,
-            [FromQuery] bool remember = false) =>
+            [FromQuery] bool remember = false,
+            [FromQuery] bool silent = false) =>
         {
             var safeReturn = IsLocalUrl(returnUrl) ? returnUrl! : "/";
             var props = new AuthenticationProperties
@@ -31,6 +35,8 @@ public static class AuthEndpoints
                     ? DateTimeOffset.UtcNow.Add(opts.Value.RememberMeAbsoluteTimeout)
                     : null,
             };
+            if (silent)
+                props.Items[AuthConstants.SilentLoginPropertyKey] = "true";
             return Results.Challenge(props, [AuthConstants.OidcScheme]);
         });
 
