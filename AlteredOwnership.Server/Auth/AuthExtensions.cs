@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace AlteredOwnership.Server.Auth;
@@ -83,6 +85,21 @@ public static class AuthExtensions
 
                 o.TokenValidationParameters.NameClaimType = "pseudo";
                 o.TokenValidationParameters.RoleClaimType = "roles";
+
+                // Keycloak puts `scope` only in the access_token, not the id_token.
+                // Project it onto the cookie identity so scope-based policies work.
+                o.Events.OnTokenValidated = ctx =>
+                {
+                    var accessToken = ctx.TokenEndpointResponse?.AccessToken;
+                    if (!string.IsNullOrEmpty(accessToken)
+                        && ctx.Principal?.Identity is ClaimsIdentity identity)
+                    {
+                        var jwt = new JsonWebTokenHandler().ReadJsonWebToken(accessToken);
+                        foreach (var claim in jwt.Claims.Where(c => c.Type == "scope"))
+                            identity.AddClaim(new Claim(claim.Type, claim.Value));
+                    }
+                    return Task.CompletedTask;
+                };
             })
             .AddJwtBearer(AuthConstants.BearerScheme, o =>
             {

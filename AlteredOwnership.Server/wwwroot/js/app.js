@@ -45,12 +45,15 @@
 
     // Auth
     const authControl = document.getElementById('ao-auth-control');
+    const importSection = document.getElementById('ao-import');
     const renderLogin = () => {
+        if (importSection) importSection.hidden = true;
         authControl.innerHTML =
             '<a href="/api/auth/login?returnUrl=/" class="btn-login">' +
             '<i class="fa-solid fa-user me-1"></i><span>Connexion</span></a>';
     };
     const renderUser = (me) => {
+        if (importSection) importSection.hidden = false;
         const name = me.pseudo || me.email || me.sub;
         const email = me.email || '';
         authControl.innerHTML =
@@ -84,4 +87,47 @@
             renderLogin();
         }
     })();
+
+    // Collection import
+    const importForm = document.getElementById('ao-import-form');
+    const importFile = document.getElementById('ao-import-file');
+    const importSubmit = document.getElementById('ao-import-submit');
+    const importStatus = document.getElementById('ao-import-status');
+    const setStatus = (kind, message) => {
+        if (!importStatus) return;
+        if (!kind) { importStatus.innerHTML = ''; return; }
+        const cls = kind === 'success' ? 'alert-success' : kind === 'error' ? 'alert-danger' : 'alert-info';
+        importStatus.innerHTML = '<div class="alert ' + cls + ' mb-0" role="alert">' + escapeHtml(message) + '</div>';
+    };
+    importForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const file = importFile?.files?.[0];
+        if (!file) return;
+
+        const body = new FormData();
+        body.append('file', file);
+
+        importSubmit.disabled = true;
+        setStatus('info', 'Import en cours…');
+        try {
+            const res = await fetch('/api/collection/import', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body,
+            });
+            if (res.status === 204) {
+                setStatus('success', 'Collection importée avec succès.');
+                importForm.reset();
+            } else if (res.status === 401) {
+                setStatus('error', 'Session expirée. Veuillez vous reconnecter.');
+            } else {
+                const text = (await res.text()) || ('Erreur ' + res.status);
+                setStatus('error', text);
+            }
+        } catch (err) {
+            setStatus('error', 'Échec de l’envoi : ' + (err?.message || err));
+        } finally {
+            importSubmit.disabled = false;
+        }
+    });
 })();
