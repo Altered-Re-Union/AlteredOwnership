@@ -24,6 +24,9 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.Property(x => x.Payload).HasColumnType("jsonb");
             e.Property(x => x.Kind).HasConversion<string>();
             e.HasIndex(x => new { x.UserId, x.UserEventId }).IsUnique();
+            e.HasIndex(x => x.PayloadHash)
+                .IsUnique()
+                .HasFilter("\"PayloadHash\" IS NOT NULL");
         });
 
         b.Entity<CardOwnership>(e =>

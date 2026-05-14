@@ -7,7 +7,7 @@ namespace AlteredOwnership.Server.Endpoints;
 
 public static class CollectionEndpoints
 {
-    public record CardOwnershipResponse(string Reference, int Quantity, bool IsUnique);
+    public record CardOwnershipResponse(string Reference, int Quantity);
 
     // Equinox does not yet ship an export date in the CSV. Hardcode the date the
     // user provided until Equinox adds it to the file.
@@ -26,7 +26,7 @@ public static class CollectionEndpoints
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
             var rows = await reader.GetCollectionAsync(userId, ct);
             return Results.Ok(rows.Select(r =>
-                new CardOwnershipResponse(r.CardReference, r.Quantity, r.IsUnique)));
+                new CardOwnershipResponse(r.CardReference, r.Quantity)));
         }).RequireAuthorization(AuthConstants.ReadPolicy);
 
         group.MapPost("import", async (
@@ -54,7 +54,21 @@ public static class CollectionEndpoints
                 PlaceholderExportedAt,
                 rows.Select(r => new EquinoxImportEvent.PayloadV1.Item(r.Reference, r.Quantity)).ToList());
 
-            await writer.ImportAsync(userId, payload, ct);
+            try
+            {
+                await writer.ImportAsync(userId, payload, ct);
+            }
+            catch (DuplicateImportException)
+            {
+                return Results.Text("Cet export a déjà été importé.", "text/plain", null, StatusCodes.Status409Conflict);
+            }
+            catch (DuplicateUniquesException ex)
+            {
+                var refs = string.Join(", ", ex.References);
+                return Results.Text(
+                    $"Les uniques suivantes ont déjà été importées : {refs}",
+                    "text/plain", null, StatusCodes.Status409Conflict);
+            }
             return Results.NoContent();
         })
         .RequireAuthorization(AuthConstants.ImportPolicy)

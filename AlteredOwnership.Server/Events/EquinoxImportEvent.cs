@@ -1,4 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using AlteredOwnership.Server.Cards;
 
 namespace AlteredOwnership.Server.Events;
 
@@ -20,6 +23,17 @@ public static class EquinoxImportEvent
     public static PayloadV1 Build(DateTimeOffset exportedAt, IReadOnlyList<PayloadV1.Item> cards)
         => new(CurrentVersion, exportedAt, cards);
 
+    // Deterministic fingerprint of an Equinox export, used to reject re-imports of
+    // the same file globally. ExportedAt is intentionally excluded for now: it's
+    // hardcoded server-side until Equinox ships the field, so it carries no signal.
+    public static string ComputeHash(PayloadV1 payload)
+    {
+        var canonical = string.Join("|", payload.Cards
+            .OrderBy(c => c.Reference, StringComparer.Ordinal)
+            .Select(c => $"{c.Reference}:{c.Quantity}"));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+
     public static void Apply(Dictionary<string, int> state, JsonDocument payloadJson)
     {
         var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
@@ -40,6 +54,7 @@ public static class EquinoxImportEvent
         foreach (var item in payload.Cards)
         {
             if (item.Quantity <= 0) continue;
+            if (!CardReferenceParser.IsAlternateArt(item.Reference) && !CardReferenceParser.IsUnique(item.Reference)) continue;
 
             state[item.Reference] = state.GetValueOrDefault(item.Reference) + item.Quantity;
         }

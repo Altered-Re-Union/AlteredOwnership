@@ -4,8 +4,17 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
 using AlteredOwnership.Server.Events;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace AlteredOwnership.Server.Services;
+
+public class DuplicateImportException() : Exception("This export has already been imported.");
+
+public class DuplicateUniquesException(IReadOnlyList<string> references)
+    : Exception("One or more uniques in the import are already owned.")
+{
+    public IReadOnlyList<string> References { get; } = references;
+}
 
 public class CollectionWriter(OwnershipDbContext db, TimeProvider time)
 {
@@ -14,23 +23,48 @@ public class CollectionWriter(OwnershipDbContext db, TimeProvider time)
         // Aspire's Npgsql integration enables retrying execution strategy, so the
         // transaction has to be opened inside ExecuteAsync. Clear the change tracker
         // at each attempt so a transient-failure retry starts from a clean slate.
+        // We run the happy path optimistically and diagnose conflicts only after the
+        // DB constraints fire — no wasted work or race windows on the common case.
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        try
+        {
+            await strategy.ExecuteAsync(async () =>
+            {
+                db.ChangeTracker.Clear();
+                await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+                var existingEvents = await LoadUserEventsAsync(userId, ct);
+                var newEvent = BuildEvent(userId, EquinoxImportEvent.Kind, payload, NextUserEventId(existingEvents));
+                newEvent.PayloadHash = EquinoxImportEvent.ComputeHash(payload);
+                db.OwnershipEvents.Add(newEvent);
+
+                var expectedState = EventReplay.ReplayAll(existingEvents.Append(newEvent));
+                var currentRows = await LoadCurrentProjectionAsync(userId, ct);
+                ReconcileProjection(userId, currentRows, expectedState);
+
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: "23505", ConstraintName: "IX_OwnershipEvents_PayloadHash" })
+        {
+            throw new DuplicateImportException();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: "23514", ConstraintName: "CK_CardOwnerships_UniqueQuantityOne" })
         {
             db.ChangeTracker.Clear();
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-            var existingEvents = await LoadUserEventsAsync(userId, ct);
-            var newEvent = BuildEvent(userId, EquinoxImportEvent.Kind, payload, NextUserEventId(existingEvents));
-            db.OwnershipEvents.Add(newEvent);
-
-            var expectedState = EventReplay.ReplayAll(existingEvents.Append(newEvent));
-            var currentRows = await LoadCurrentProjectionAsync(userId, ct);
-            ReconcileProjection(userId, currentRows, expectedState);
-
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+            var newUniqueRefs = payload.Cards
+                .Where(c => CardReferenceParser.IsUnique(c.Reference))
+                .Select(c => c.Reference)
+                .ToHashSet();
+            var alreadyOwned = await db.CardOwnerships
+                .Where(c => c.UserId == userId && newUniqueRefs.Contains(c.CardReference))
+                .Select(c => c.CardReference)
+                .ToListAsync(ct);
+            throw new DuplicateUniquesException(alreadyOwned);
+        }
     }
 
     private Task<List<OwnershipEvent>> LoadUserEventsAsync(Guid userId, CancellationToken ct) =>
