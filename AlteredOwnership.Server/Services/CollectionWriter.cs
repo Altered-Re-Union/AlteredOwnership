@@ -11,18 +11,26 @@ public class CollectionWriter(OwnershipDbContext db, TimeProvider time)
 {
     public async Task ImportAsync(Guid userId, EquinoxImportEvent.PayloadV1 payload, CancellationToken ct)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Aspire's Npgsql integration enables retrying execution strategy, so the
+        // transaction has to be opened inside ExecuteAsync. Clear the change tracker
+        // at each attempt so a transient-failure retry starts from a clean slate.
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var existingEvents = await LoadUserEventsAsync(userId, ct);
-        var newEvent = BuildEvent(userId, EquinoxImportEvent.Kind, payload, NextUserEventId(existingEvents));
-        db.OwnershipEvents.Add(newEvent);
+            var existingEvents = await LoadUserEventsAsync(userId, ct);
+            var newEvent = BuildEvent(userId, EquinoxImportEvent.Kind, payload, NextUserEventId(existingEvents));
+            db.OwnershipEvents.Add(newEvent);
 
-        var expectedState = EventReplay.ReplayAll(existingEvents.Append(newEvent));
-        var currentRows = await LoadCurrentProjectionAsync(userId, ct);
-        ReconcileProjection(userId, currentRows, expectedState);
+            var expectedState = EventReplay.ReplayAll(existingEvents.Append(newEvent));
+            var currentRows = await LoadCurrentProjectionAsync(userId, ct);
+            ReconcileProjection(userId, currentRows, expectedState);
 
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        });
     }
 
     private Task<List<OwnershipEvent>> LoadUserEventsAsync(Guid userId, CancellationToken ct) =>
