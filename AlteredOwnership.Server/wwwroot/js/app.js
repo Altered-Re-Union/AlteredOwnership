@@ -3,12 +3,35 @@
     const THEME_KEY = 'ar_theme';
     const LANG_KEY = 'ar_lang';
     const LANG_FLAGS = { en: '🇬🇧', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', de: '🇩🇪' };
-    const DEFAULT_LANG = 'fr';
+    const DEFAULT_LANG = 'en';
     const DEFAULT_THEME = 'light';
 
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
+
+    // i18n
+    let currentLang = DEFAULT_LANG;
+    const t = (key) => {
+        const dict = window.AO_I18N || {};
+        return (dict[currentLang] && dict[currentLang][key])
+            || (dict[DEFAULT_LANG] && dict[DEFAULT_LANG][key])
+            || key;
+    };
+    const applyI18n = () => {
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+            el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+            el.innerHTML = t(el.dataset.i18nHtml);
+        });
+        document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+            el.title = t(el.dataset.i18nTitle);
+        });
+        document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+            el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+        });
+    };
 
     // Theme
     const applyTheme = (theme) => {
@@ -25,14 +48,18 @@
 
     // Language
     const applyLang = (lang) => {
-        html.lang = lang;
+        currentLang = LANG_FLAGS[lang] ? lang : DEFAULT_LANG;
+        html.lang = currentLang;
         const flag = document.querySelector('[data-lang-current]');
-        if (flag) flag.textContent = LANG_FLAGS[lang] || LANG_FLAGS[DEFAULT_LANG];
+        if (flag) flag.textContent = LANG_FLAGS[currentLang];
         document.querySelectorAll('[data-lang]').forEach((a) => {
-            a.classList.toggle('active', a.dataset.lang === lang);
+            a.classList.toggle('active', a.dataset.lang === currentLang);
         });
+        applyI18n();
+        // Auth control is built in JS, so it needs to be re-rendered after language switch.
+        if (currentAuth === 'anonymous') renderLogin();
+        else if (currentAuth) renderUser(currentAuth);
     };
-    applyLang(localStorage.getItem(LANG_KEY) || DEFAULT_LANG);
     document.querySelectorAll('[data-lang]').forEach((a) => {
         a.addEventListener('click', (e) => {
             e.preventDefault();
@@ -46,14 +73,20 @@
     // Auth
     const authControl = document.getElementById('ao-auth-control');
     const importSection = document.getElementById('ao-import');
+    const SILENT_LOGIN_KEY = 'ao_silent_login_tried';
+    // null = unknown yet, 'anonymous' = login button, object = signed-in user.
+    let currentAuth = null;
     const renderLogin = () => {
+        currentAuth = 'anonymous';
         if (importSection) importSection.hidden = true;
         authControl.innerHTML =
             '<a href="/api/auth/login?returnUrl=/" class="btn-login">' +
-            '<i class="fa-solid fa-user me-1"></i><span>Connexion</span></a>';
+            '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(t('auth.login')) + '</span></a>';
     };
     const renderUser = (me) => {
+        currentAuth = me;
         if (importSection) importSection.hidden = false;
+        sessionStorage.removeItem(SILENT_LOGIN_KEY);
         const name = me.pseudo || me.email || me.sub;
         const email = me.email || '';
         authControl.innerHTML =
@@ -64,13 +97,13 @@
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                     (email ? '<li><span class="dropdown-item-text small text-muted">' + escapeHtml(email) + '</span></li>' : '') +
                     '<li><a class="dropdown-item" href="https://www.beta.altered-reunion.com/pages/account">' +
-                        '<i class="fa-solid fa-user me-1"></i>Mon compte' +
+                        '<i class="fa-solid fa-user me-1"></i>' + escapeHtml(t('auth.account')) +
                     '</a></li>' +
                     '<li><hr class="dropdown-divider"></li>' +
                     '<li>' +
                         '<form method="POST" action="/api/auth/logout" style="margin:0">' +
                             '<button type="submit" class="dropdown-item text-danger">' +
-                                '<i class="fa-solid fa-right-from-bracket me-1"></i>Déconnexion' +
+                                '<i class="fa-solid fa-right-from-bracket me-1"></i>' + escapeHtml(t('auth.logout')) +
                             '</button>' +
                         '</form>' +
                     '</li>' +
@@ -78,10 +111,26 @@
             '</div>';
     };
 
+    // On 401, try a single silent OIDC login per browser session: if the user already
+    // has a Keycloak SSO session we get logged in transparently; otherwise Keycloak
+    // returns login_required and we come back here to render the login button.
+    const tryAutoLogin = () => {
+        if (sessionStorage.getItem(SILENT_LOGIN_KEY) === '1') {
+            renderLogin();
+            return;
+        }
+        sessionStorage.setItem(SILENT_LOGIN_KEY, '1');
+        const returnUrl = window.location.pathname + window.location.search;
+        window.location.replace('/api/auth/login?silent=true&returnUrl=' + encodeURIComponent(returnUrl));
+    };
+
+    // Apply language now that renderLogin/renderUser exist (re-render hook needs them).
+    applyLang(localStorage.getItem(LANG_KEY) || DEFAULT_LANG);
+
     (async () => {
         try {
             const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
-            if (!res.ok) { renderLogin(); return; }
+            if (!res.ok) { tryAutoLogin(); return; }
             renderUser(await res.json());
         } catch {
             renderLogin();
@@ -108,7 +157,7 @@
         body.append('file', file);
 
         importSubmit.disabled = true;
-        setStatus('info', 'Import en cours…');
+        setStatus('info', t('import.inProgress'));
         try {
             const res = await fetch('/api/collection/import', {
                 method: 'POST',
@@ -116,16 +165,16 @@
                 body,
             });
             if (res.status === 204) {
-                setStatus('success', 'Collection importée avec succès.');
+                setStatus('success', t('import.success'));
                 importForm.reset();
             } else if (res.status === 401) {
-                setStatus('error', 'Session expirée. Veuillez vous reconnecter.');
+                setStatus('error', t('import.sessionExpired'));
             } else {
-                const text = (await res.text()) || ('Erreur ' + res.status);
+                const text = (await res.text()) || (t('import.error') + ' ' + res.status);
                 setStatus('error', text);
             }
         } catch (err) {
-            setStatus('error', 'Échec de l’envoi : ' + (err?.message || err));
+            setStatus('error', t('import.sendError') + ' : ' + (err?.message || err));
         } finally {
             importSubmit.disabled = false;
         }
