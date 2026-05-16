@@ -51,7 +51,7 @@ app.Use(async (ctx, next) =>
         $"img-src 'self' {externalHosts.ReunionCspSource} data:; " +
         $"font-src 'self' {externalHosts.ReunionCspSource} https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         $"style-src 'self' 'unsafe-inline' {externalHosts.ReunionCspSource} https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        "script-src 'self' https://cdn.jsdelivr.net; " +
+        "script-src 'self'; " +
         "connect-src 'self'; " +
         "frame-ancestors 'none'; " +
         "base-uri 'self'; " +
