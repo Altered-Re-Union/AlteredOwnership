@@ -1,0 +1,14 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/*.suo
+**/.git
+**/.github
+**/.gitignore
+**/.dockerignore
+**/Dockerfile
+AlteredOwnership.AppHost/
+AlteredOwnership.Server.Tests/
