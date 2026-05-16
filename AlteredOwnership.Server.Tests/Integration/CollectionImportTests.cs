@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -22,10 +23,19 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             "ALT_ALIZE_B_AX_32_U_4624;Unique;Unique;1\n" +        // unique  -> kept
             "ALT_DUSTERTOP_B_AX_01_C;Topdust;Commun;2\n";         // dedicated set -> kept
 
+        using var zipStream = new MemoryStream();
+        using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("clear/collection.csv");
+            await using var entryStream = entry.Open();
+            await entryStream.WriteAsync(Encoding.UTF8.GetBytes(csv));
+        }
+
         using var content = new MultipartFormDataContent();
-        var csvContent = new ByteArrayContent(Encoding.UTF8.GetBytes(csv));
-        csvContent.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
-        content.Add(csvContent, "file", "collection.csv");
+        var zipContent = new ByteArrayContent(zipStream.ToArray());
+        zipContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        content.Add(zipContent, "file", "collection.zip");
+        content.Add(new StringContent("true"), "termsAccepted");
 
         var importResponse = await client.PostAsync("/api/collection/import", content);
         Assert.Equal(HttpStatusCode.NoContent, importResponse.StatusCode);

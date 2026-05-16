@@ -72,20 +72,23 @@
 
     // Auth
     const authControl = document.getElementById('ao-auth-control');
-    const importSection = document.getElementById('ao-import');
+    const importAnonBlock = document.getElementById('ao-import-anon');
+    const importAuthBlock = document.getElementById('ao-import-auth');
     const SILENT_LOGIN_KEY = 'ao_silent_login_tried';
     // null = unknown yet, 'anonymous' = login button, object = signed-in user.
     let currentAuth = null;
     const renderLogin = () => {
         currentAuth = 'anonymous';
-        if (importSection) importSection.hidden = true;
+        if (importAnonBlock) importAnonBlock.hidden = false;
+        if (importAuthBlock) importAuthBlock.hidden = true;
         authControl.innerHTML =
             '<a href="/api/auth/login?returnUrl=/" class="btn-login">' +
             '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(t('auth.login')) + '</span></a>';
     };
     const renderUser = (me) => {
         currentAuth = me;
-        if (importSection) importSection.hidden = false;
+        if (importAnonBlock) importAnonBlock.hidden = true;
+        if (importAuthBlock) importAuthBlock.hidden = false;
         sessionStorage.removeItem(SILENT_LOGIN_KEY);
         const name = me.pseudo || me.email || me.sub;
         const email = me.email || '';
@@ -140,6 +143,7 @@
     // Collection import
     const importForm = document.getElementById('ao-import-form');
     const importFile = document.getElementById('ao-import-file');
+    const importTerms = document.getElementById('ao-import-terms');
     const importSubmit = document.getElementById('ao-import-submit');
     const importStatus = document.getElementById('ao-import-status');
     const setStatus = (kind, message) => {
@@ -148,13 +152,20 @@
         const cls = kind === 'success' ? 'alert-success' : kind === 'error' ? 'alert-danger' : 'alert-info';
         importStatus.innerHTML = '<div class="alert ' + cls + ' mb-0" role="alert">' + escapeHtml(message) + '</div>';
     };
+    const refreshImportSubmit = () => {
+        if (!importSubmit) return;
+        importSubmit.disabled = !(importFile?.files?.[0] && importTerms?.checked);
+    };
+    importFile?.addEventListener('change', refreshImportSubmit);
+    importTerms?.addEventListener('change', refreshImportSubmit);
     importForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const file = importFile?.files?.[0];
-        if (!file) return;
+        if (!file || !importTerms?.checked) return;
 
         const body = new FormData();
         body.append('file', file);
+        body.append('termsAccepted', 'true');
 
         importSubmit.disabled = true;
         setStatus('info', t('import.inProgress'));
@@ -176,7 +187,7 @@
         } catch (err) {
             setStatus('error', t('import.sendError') + ' : ' + (err?.message || err));
         } finally {
-            importSubmit.disabled = false;
+            refreshImportSubmit();
         }
     });
 })();

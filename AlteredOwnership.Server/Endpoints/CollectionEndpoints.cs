@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using AlteredOwnership.Server.Domain;
 using AlteredOwnership.Server.Domain.Events;
 using AlteredOwnership.Server.Domain.Services;
@@ -32,18 +33,33 @@ public static class CollectionEndpoints
 
         group.MapPost("import", async (
             IFormFile file,
+            [Microsoft.AspNetCore.Mvc.FromForm] bool termsAccepted,
             CurrentUserAccessor currentUser,
             CollectionImporter importer,
             CancellationToken ct) =>
         {
+            if (!termsAccepted)
+                return Results.BadRequest("Terms must be accepted to import.");
+
             if (file.Length == 0)
                 return Results.BadRequest("Uploaded file is empty.");
 
-            await using var stream = file.OpenReadStream();
             IReadOnlyList<EquinoxCsvParser.Row> rows;
             try
             {
-                rows = await EquinoxCsvParser.ParseAsync(stream, ct);
+                await using var fileStream = file.OpenReadStream();
+                using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read);
+                var entry = archive.Entries.FirstOrDefault(e =>
+                    string.Equals(e.FullName, "clear/collection.csv", StringComparison.OrdinalIgnoreCase));
+                if (entry is null)
+                    return Results.BadRequest("Archive does not contain clear/collection.csv.");
+
+                await using var csvStream = entry.Open();
+                rows = await EquinoxCsvParser.ParseAsync(csvStream, ct);
+            }
+            catch (InvalidDataException)
+            {
+                return Results.BadRequest("Uploaded file is not a valid .zip archive.");
             }
             catch (FormatException ex)
             {
@@ -53,6 +69,7 @@ public static class CollectionEndpoints
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
             var payload = EquinoxImportEvent.Build(
                 PlaceholderExportedAt,
+                termsAccepted,
                 rows.Select(r => new EquinoxImportEvent.PayloadV1.Item(r.Reference, r.Quantity)).ToList());
 
             try

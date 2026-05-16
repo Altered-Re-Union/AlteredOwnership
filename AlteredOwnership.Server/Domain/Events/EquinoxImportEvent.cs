@@ -17,11 +17,12 @@ public static class EquinoxImportEvent
         DateTimeOffset ExportedAt,
         IReadOnlyList<PayloadV1.Item> Cards)
     {
+        public bool TermsAccepted { get; init; }
         public record Item(string Reference, int Quantity);
     }
 
-    public static PayloadV1 Build(DateTimeOffset exportedAt, IReadOnlyList<PayloadV1.Item> cards)
-        => new(CurrentVersion, exportedAt, cards);
+    public static PayloadV1 Build(DateTimeOffset exportedAt, bool termsAccepted, IReadOnlyList<PayloadV1.Item> cards)
+        => new(CurrentVersion, exportedAt, cards) { TermsAccepted = termsAccepted };
 
     // Deterministic fingerprint of an Equinox export, used to reject re-imports of
     // the same file globally. ExportedAt is intentionally excluded for now: it's

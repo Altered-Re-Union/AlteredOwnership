@@ -10,6 +10,7 @@ public class EquinoxImportEventTests
     private static EquinoxImportEvent.PayloadV1 Payload(params (string Ref, int Qty)[] cards) =>
         EquinoxImportEvent.Build(
             SampleExportedAt,
+            termsAccepted: true,
             cards.Select(c => new EquinoxImportEvent.PayloadV1.Item(c.Ref, c.Qty)).ToList());
 
     private static Dictionary<string, int> Apply(EquinoxImportEvent.PayloadV1 payload)
