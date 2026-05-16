@@ -99,7 +99,7 @@
                 '</button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                     (email ? '<li><span class="dropdown-item-text small text-muted">' + escapeHtml(email) + '</span></li>' : '') +
-                    '<li><a class="dropdown-item" href="https://www.beta.altered-reunion.com/pages/account">' +
+                    '<li><a class="dropdown-item" href="' + (window.AppConfig && window.AppConfig.reunionWebBase || '') + '/pages/account">' +
                         '<i class="fa-solid fa-user me-1"></i>' + escapeHtml(t('auth.account')) +
                     '</a></li>' +
                     '<li><hr class="dropdown-divider"></li>' +

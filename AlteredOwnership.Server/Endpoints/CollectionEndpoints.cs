@@ -87,6 +87,13 @@ public static class CollectionEndpoints
                     $"Les uniques suivantes ont déjà été importées : {refs}",
                     "text/plain", null, StatusCodes.Status409Conflict);
             }
+            catch (ConflictingUniquesException ex)
+            {
+                var refs = string.Join(", ", ex.References);
+                return Results.Text(
+                    $"Les uniques suivantes appartiennent déjà à un autre joueur : {refs}",
+                    "text/plain", null, StatusCodes.Status409Conflict);
+            }
             return Results.NoContent();
         })
         .RequireAuthorization(AuthConstants.ImportPolicy)

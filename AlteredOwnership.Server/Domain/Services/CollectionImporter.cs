@@ -14,6 +14,12 @@ public class DuplicateUniquesException(IReadOnlyList<string> references)
     public IReadOnlyList<string> References { get; } = references;
 }
 
+public class ConflictingUniquesException(IReadOnlyList<string> references)
+    : Exception("One or more uniques in the import are already owned by another player.")
+{
+    public IReadOnlyList<string> References { get; } = references;
+}
+
 public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
 {
     public async Task ImportAsync(Guid userId, EquinoxImportEvent.PayloadV1 payload, CancellationToken ct)
@@ -45,6 +51,20 @@ public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
                 .Select(c => c.CardReference)
                 .ToListAsync(ct);
             throw new DuplicateUniquesException(alreadyOwned);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: "23505", ConstraintName: "IX_CardOwnerships_CardReference" })
+        {
+            db.ChangeTracker.Clear();
+            var newUniqueRefs = payload.Cards
+                .Where(c => CardReferenceParser.IsUnique(c.Reference))
+                .Select(c => c.Reference)
+                .ToHashSet();
+            var ownedByOthers = await db.CardOwnerships
+                .Where(c => c.UserId != userId && newUniqueRefs.Contains(c.CardReference))
+                .Select(c => c.CardReference)
+                .ToListAsync(ct);
+            throw new ConflictingUniquesException(ownedByOthers);
         }
     }
 
