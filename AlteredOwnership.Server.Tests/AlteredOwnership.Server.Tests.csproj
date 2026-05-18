@@ -24,4 +24,10 @@
     <ProjectReference Include="..\AlteredOwnership.Server\AlteredOwnership.Server.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Infrastructure\Encrypted_collection_test.csv;Infrastructure\Encrypted_collection_test.csv.enc">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
