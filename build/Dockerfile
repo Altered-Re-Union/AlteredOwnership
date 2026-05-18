@@ -7,7 +7,8 @@
 # `app` is the standalone AlteredOwnership.Server. It expects:
 #   - ConnectionStrings__ownershipdb : Postgres connection string
 #   - ConnectionStrings__cache       : Redis connection string
-#   - Authentication__Keycloak__*    : OIDC settings (see appsettings.json)
+#   - Keycloak__*                    : OIDC settings (see appsettings.json)
+#   - ExternalHosts__*               : reunion / auth host overrides (see appsettings.json)
 #
 # `migrations` is a one-shot container that applies EF Core migrations and exits.
 # The compiled-in connection string comes from OwnershipDbContextDesignFactory
