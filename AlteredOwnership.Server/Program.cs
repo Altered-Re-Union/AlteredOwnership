@@ -5,6 +5,7 @@ using AlteredOwnership.Server.Endpoints;
 using AlteredOwnership.Server.Infrastructure.Auth;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -33,6 +34,15 @@ var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.Sectio
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 
+// Behind Traefik over plain HTTP: trust X-Forwarded-Proto/-For so OIDC redirect_uri,
+// Secure cookies, and request.Scheme reflect the real HTTPS edge.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 // CORS: open for third-party API consumers (Bearer + read-collection scope only).
 // Cookie-protected endpoints stay same-origin: no Access-Control-Allow-Credentials.
 builder.Services.AddCors(o => o.AddPolicy("PublicReadApi", p => p
@@ -41,6 +51,8 @@ builder.Services.AddCors(o => o.AddPolicy("PublicReadApi", p => p
     .WithMethods("GET")));
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 
