@@ -3,6 +3,7 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Endpoints;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -28,6 +29,9 @@ builder.Services.AddScoped<EventAppender>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
     .Bind(builder.Configuration.GetSection(ExternalHostsOptions.SectionName));
+
+builder.Services.AddOptions<EquinoxImportOptions>()
+    .Bind(builder.Configuration.GetSection(EquinoxImportOptions.SectionName));
 
 var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.SectionName).Get<ExternalHostsOptions>()
     ?? throw new InvalidOperationException("Missing 'ExternalHosts' configuration section.");

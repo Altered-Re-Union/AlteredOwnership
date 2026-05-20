@@ -22,7 +22,7 @@ public class ConflictingUniquesException(IReadOnlyList<string> references)
 
 public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
 {
-    public async Task ImportAsync(Guid userId, EquinoxImportEvent.PayloadV1 payload, CancellationToken ct)
+    public async Task ImportAsync(Guid userId, EquinoxImportEvent.PayloadV1 payload, DateTimeOffset exportedAt, CancellationToken ct)
     {
         var newEvent = new OwnershipEvent
         {
@@ -30,6 +30,7 @@ public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
             Kind = EquinoxImportEvent.Kind,
             Payload = JsonSerializer.SerializeToDocument(payload),
             PayloadHash = EquinoxImportEvent.ComputeHash(payload),
+            ExportedAt = exportedAt,
         };
         try
         {

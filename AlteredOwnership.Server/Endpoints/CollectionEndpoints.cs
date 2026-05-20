@@ -1,20 +1,18 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using AlteredOwnership.Server.Domain;
 using AlteredOwnership.Server.Domain.Events;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
+using Microsoft.Extensions.Options;
 
 namespace AlteredOwnership.Server.Endpoints;
 
 public static class CollectionEndpoints
 {
     public record CardOwnershipResponse(string Reference, int Quantity);
-
-    // Equinox does not yet ship an export date in the CSV. Hardcode the date the
-    // user provided until Equinox adds it to the file.
-    private static readonly DateTimeOffset PlaceholderExportedAt =
-        new(2026, 5, 12, 0, 0, 0, TimeSpan.Zero);
 
     public static IEndpointRouteBuilder MapCollectionEndpoints(this IEndpointRouteBuilder routes)
     {
@@ -36,6 +34,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromForm] bool termsAccepted,
             CurrentUserAccessor currentUser,
             CollectionImporter importer,
+            IOptions<EquinoxImportOptions> importOptions,
             CancellationToken ct) =>
         {
             if (!termsAccepted)
@@ -44,22 +43,38 @@ public static class CollectionEndpoints
             if (file.Length == 0)
                 return Results.BadRequest("Uploaded file is empty.");
 
-            IReadOnlyList<EquinoxCsvParser.Row> rows;
+            // Server-side config: a bad/missing key is a misconfiguration, so let it surface.
+            var key = Convert.FromHexString(importOptions.Value.DecryptionKeyHex);
+
+            EquinoxCsvParser.ParseResult parsed;
             try
             {
                 await using var fileStream = file.OpenReadStream();
                 using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read);
                 var entry = archive.Entries.FirstOrDefault(e =>
-                    string.Equals(e.FullName, "clear/collection.csv", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(e.FullName, "encrypted/collection.csv.enc", StringComparison.OrdinalIgnoreCase));
                 if (entry is null)
-                    return Results.BadRequest("Archive does not contain clear/collection.csv.");
+                    return Results.BadRequest("Archive does not contain encrypted/collection.csv.enc.");
 
-                await using var csvStream = entry.Open();
-                rows = await EquinoxCsvParser.ParseAsync(csvStream, ct);
+                byte[] encrypted;
+                await using (var entryStream = entry.Open())
+                {
+                    using var buffer = new MemoryStream();
+                    await entryStream.CopyToAsync(buffer, ct);
+                    encrypted = buffer.ToArray();
+                }
+
+                var decrypted = SecretBoxFile.Decrypt(encrypted, key);
+                using var csvStream = new MemoryStream(decrypted);
+                parsed = await EquinoxCsvParser.ParseAsync(csvStream, ct);
             }
             catch (InvalidDataException)
             {
                 return Results.BadRequest("Uploaded file is not a valid .zip archive.");
+            }
+            catch (CryptographicException)
+            {
+                return Results.BadRequest("Could not decrypt the collection file.");
             }
             catch (FormatException ex)
             {
@@ -68,13 +83,12 @@ public static class CollectionEndpoints
 
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
             var payload = EquinoxImportEvent.Build(
-                PlaceholderExportedAt,
                 termsAccepted,
-                rows.Select(r => new EquinoxImportEvent.PayloadV1.Item(r.Reference, r.Quantity)).ToList());
+                parsed.Rows.Select(r => new EquinoxImportEvent.PayloadV1.Item(r.Reference, r.Quantity)).ToList());
 
             try
             {
-                await importer.ImportAsync(userId, payload, ct);
+                await importer.ImportAsync(userId, payload, parsed.ExportedAt, ct);
             }
             catch (DuplicateImportException)
             {

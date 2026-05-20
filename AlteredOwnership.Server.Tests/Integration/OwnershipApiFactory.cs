@@ -17,6 +17,10 @@ namespace AlteredOwnership.Server.Tests.Integration;
 
 public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    // libsodium secretbox key tests encrypt the collection with; the import endpoint
+    // is configured to decrypt with the same key below.
+    public const string DecryptionKeyHex = "";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .Build();
@@ -39,6 +43,7 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:ownershipdb", _postgres.GetConnectionString());
+        builder.UseSetting("EquinoxImport:DecryptionKeyHex", DecryptionKeyHex);
 
         builder.ConfigureTestServices(services =>
         {

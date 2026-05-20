@@ -14,19 +14,18 @@ public static class EquinoxImportEvent
 
     public record PayloadV1(
         int Version,
-        DateTimeOffset ExportedAt,
         IReadOnlyList<PayloadV1.Item> Cards)
     {
         public bool TermsAccepted { get; init; }
         public record Item(string Reference, int Quantity);
     }
 
-    public static PayloadV1 Build(DateTimeOffset exportedAt, bool termsAccepted, IReadOnlyList<PayloadV1.Item> cards)
-        => new(CurrentVersion, exportedAt, cards) { TermsAccepted = termsAccepted };
+    public static PayloadV1 Build(bool termsAccepted, IReadOnlyList<PayloadV1.Item> cards)
+        => new(CurrentVersion, cards) { TermsAccepted = termsAccepted };
 
     // Deterministic fingerprint of an Equinox export, used to reject re-imports of
-    // the same file globally. ExportedAt is intentionally excluded for now: it's
-    // hardcoded server-side until Equinox ships the field, so it carries no signal.
+    // the same collection globally. The export timestamp is intentionally excluded:
+    // re-importing the same cards under a different timestamp is still a duplicate.
     public static string ComputeHash(PayloadV1 payload)
     {
         var canonical = string.Join("|", payload.Cards

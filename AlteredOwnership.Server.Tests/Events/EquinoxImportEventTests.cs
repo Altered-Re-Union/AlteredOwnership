@@ -5,11 +5,8 @@ namespace AlteredOwnership.Server.Tests.Events;
 
 public class EquinoxImportEventTests
 {
-    private static readonly DateTimeOffset SampleExportedAt = new(2026, 5, 12, 0, 0, 0, TimeSpan.Zero);
-
     private static EquinoxImportEvent.PayloadV1 Payload(params (string Ref, int Qty)[] cards) =>
         EquinoxImportEvent.Build(
-            SampleExportedAt,
             termsAccepted: true,
             cards.Select(c => new EquinoxImportEvent.PayloadV1.Item(c.Ref, c.Qty)).ToList());
 
@@ -83,7 +80,7 @@ public class EquinoxImportEventTests
     [Fact]
     public void Apply_unsupported_version_throws()
     {
-        var json = JsonSerializer.SerializeToDocument(new { Version = 99, ExportedAt = SampleExportedAt, Cards = Array.Empty<object>() });
+        var json = JsonSerializer.SerializeToDocument(new { Version = 99, Cards = Array.Empty<object>() });
         Assert.Throws<NotSupportedException>(() => EquinoxImportEvent.Apply(new Dictionary<string, int>(), json));
     }
 

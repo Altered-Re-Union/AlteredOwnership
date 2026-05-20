@@ -24,5 +24,9 @@ public class OwnershipEvent
     // unique index where PayloadHash IS NOT NULL.
     public string? PayloadHash { get; set; }
 
+    // Timestamp the source export was generated at (read from the CSV), kept as
+    // event metadata rather than inside the payload.
+    public DateTimeOffset ExportedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

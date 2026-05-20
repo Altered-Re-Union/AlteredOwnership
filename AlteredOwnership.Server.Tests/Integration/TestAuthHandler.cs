@@ -16,12 +16,21 @@ public class TestAuthHandler(
     public const string SchemeName = "Test";
     public const string KeycloakId = "test-keycloak-id";
 
+    // Tests can impersonate distinct users by setting this header; without it,
+    // requests authenticate as the default KeycloakId.
+    public const string UserHeader = "X-Test-User";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var keycloakId = Request.Headers.TryGetValue(UserHeader, out var values)
+            && !string.IsNullOrEmpty(values.ToString())
+                ? values.ToString()
+                : KeycloakId;
+
         var identity = new ClaimsIdentity(
             [
-                new Claim(ClaimTypes.NameIdentifier, KeycloakId),
-                new Claim("sub", KeycloakId),
+                new Claim(ClaimTypes.NameIdentifier, keycloakId),
+                new Claim("sub", keycloakId),
                 new Claim("scope", $"{AuthConstants.ReadScope} {AuthConstants.WriteScope}"),
             ],
             SchemeName);
