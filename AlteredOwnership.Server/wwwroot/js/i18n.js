@@ -38,7 +38,7 @@ window.AO_I18N = {
       "<li>We don't grant you ownership of the cards the way Equinox did. It's just a list of cards playable in certain defined formats, which may evolve in the future — nothing more.</li>" +
       "<li>You accept that your uniques may be used by others in certain formats (for example: a format without ownership, a format where each player has X uniques that change every week, etc.).</li>" +
       "</ul>" +
-      '<p>Exact terms: <a href="https://docs.google.com/document/d/1zdBUxdIjaTOYXD2UoghgrqLHMbtN5Yjz" target="_blank" rel="noopener">read here</a>.</p>',
+      "<p>Exact terms: TODO.</p>",
     "import.title": "Import my collection",
     "import.description":
       "Import the <code>altered-personal-data-export.zip</code> file.",
@@ -96,7 +96,7 @@ window.AO_I18N = {
       "<li>On ne vous donne pas la propriété des cartes comme Equinox a pu le faire. C'est juste une liste de cartes jouables dans certains formats définis, qui peuvent évoluer dans le futur, rien de plus.</li>" +
       "<li>Vous acceptez que vos uniques soient utilisées par d'autres dans certains formats (par exemple : un format sans propriété, un format où chaque joueur aurait X uniques qui changent chaque semaine, etc.).</li>" +
       "</ul>" +
-      '<p>Conditions exactes : <a href="https://docs.google.com/document/d/1zdBUxdIjaTOYXD2UoghgrqLHMbtN5Yjz" target="_blank" rel="noopener">consulter</a>.</p>',
+      "<p>Conditions exactes : TODO.</p>",
     "import.title": "Importer ma collection",
     "import.description":
       "Importez le fichier <code>altered-personal-data-export.zip</code>.",
@@ -154,7 +154,7 @@ window.AO_I18N = {
       "<li>No te otorgamos la propiedad de las cartas como hacía Equinox. Es solo una lista de cartas jugables en ciertos formatos definidos, que pueden evolucionar en el futuro, nada más.</li>" +
       "<li>Aceptas que tus únicas puedan ser utilizadas por otros en ciertos formatos (por ejemplo: un formato sin propiedad, un formato donde cada jugador tenga X únicas que cambian cada semana, etc.).</li>" +
       "</ul>" +
-      '<p>Condiciones exactas: <a href="https://docs.google.com/document/d/1zdBUxdIjaTOYXD2UoghgrqLHMbtN5Yjz" target="_blank" rel="noopener">consultar</a>.</p>',
+      "<p>Condiciones exactas: TODO.</p>",
     "import.title": "Importar mi colección",
     "import.description":
       "Importa el archivo <code>altered-personal-data-export.zip</code>.",
@@ -212,7 +212,7 @@ window.AO_I18N = {
       "<li>Non vi diamo la proprietà delle carte come faceva Equinox. È solo un elenco di carte giocabili in alcuni formati definiti, che possono evolvere in futuro, niente di più.</li>" +
       "<li>Accettate che le vostre uniche possano essere usate da altri in alcuni formati (ad esempio: un formato senza proprietà, un formato in cui ogni giocatore ha X uniche che cambiano ogni settimana, ecc.).</li>" +
       "</ul>" +
-      '<p>Condizioni esatte: <a href="https://docs.google.com/document/d/1zdBUxdIjaTOYXD2UoghgrqLHMbtN5Yjz" target="_blank" rel="noopener">consulta</a>.</p>',
+      "<p>Condizioni esatte: TODO.</p>",
     "import.title": "Importa la mia collezione",
     "import.description":
       "Importa il file <code>altered-personal-data-export.zip</code>.",
@@ -270,7 +270,7 @@ window.AO_I18N = {
       "<li>Wir geben euch nicht das Eigentum an den Karten, wie es Equinox getan hat. Es ist nur eine Liste spielbarer Karten in bestimmten definierten Formaten, die sich in Zukunft weiterentwickeln können — mehr nicht.</li>" +
       "<li>Ihr akzeptiert, dass eure Uniques in bestimmten Formaten von anderen verwendet werden können (zum Beispiel: ein Format ohne Eigentum, ein Format, in dem jeder Spieler X Uniques hat, die jede Woche wechseln, usw.).</li>" +
       "</ul>" +
-      '<p>Genaue Bedingungen: <a href="https://docs.google.com/document/d/1zdBUxdIjaTOYXD2UoghgrqLHMbtN5Yjz" target="_blank" rel="noopener">hier nachlesen</a>.</p>',
+      "<p>Genaue Bedingungen: TODO</p>",
     "import.title": "Meine Sammlung importieren",
     "import.description":
       "Importiere die Datei <code>altered-personal-data-export.zip</code>.",
