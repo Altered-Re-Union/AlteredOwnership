@@ -81,9 +81,9 @@ app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        $"img-src 'self' {externalHosts.ReunionCspSource} data:; " +
-        $"font-src 'self' {externalHosts.ReunionCspSource} https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        $"style-src 'self' 'unsafe-inline' {externalHosts.ReunionCspSource} https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+        "img-src 'self' data:; " +
+        "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "script-src 'self'; " +
         "connect-src 'self'; " +
         "frame-ancestors 'none'; " +

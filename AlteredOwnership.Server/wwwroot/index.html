@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,82 +8,37 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="/config.js"></script>
-    <link rel="stylesheet" data-cfg-href="{reunionWebBase}/assets/font/alteredicons.css">
-    <link rel="stylesheet" data-cfg-href="{reunionWebBase}/themes/azure/style.css">
     <script src="/js/bootstrap.js"></script>
 
     <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
-    <header class="az-site-header site-header">
-        <div class="az-topbar">
-            <div class="az-topbar-inner">
-                <a class="az-brand" data-cfg-href="{reunionWebBase}/" title="Altered Re:Union">
-                    <img data-cfg-src="{reunionWebBase}/uploads/logo/20260513_155720_4f49c889.png" alt="Altered Re:Union" class="navbar-logo-custom">
-                    <span class="az-brand-name">Altered Re:Union</span>
+    <header class="ao-header">
+        <div class="ao-header-inner">
+            <a class="ao-brand" href="/" title="Altered Ownership">
+                <img src="/img/logo.png" alt="Altered Ownership" class="ao-logo">
+                <span class="ao-brand-name">Altered Ownership</span>
+            </a>
+
+            <div class="ao-header-controls">
+                <a class="ao-back-link" data-cfg-href="{reunionWebBase}/">
+                    <i class="fa-solid fa-arrow-left"></i><span data-i18n="nav.back">Back to altered.re</span>
                 </a>
 
-                <button type="button" data-sidebar-toggle="" class="nav-link" data-i18n-title="nav.menu" title="Menu">
-                    <i class="fa-solid fa-bars-staggered"></i>
-                </button>
-
-                <div class="az-topbar-controls">
-                    <button id="header-theme-toggle" class="btn-theme-toggle-ac" data-i18n-aria-label="theme.toggle" data-i18n-title="theme.dark" aria-label="Toggle dark mode" title="Dark mode">
-                        <i class="fa-solid fa-moon"></i>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="ao-lang-toggle">
+                        <span data-lang-current>🇬🇧</span>
                     </button>
-
-                    <div class="dropdown dropdown-lang" style="display:flex;align-items:center">
-                        <button class="btn-theme-toggle-ac" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="ao-lang-toggle" style="line-height:1;display:inline-flex;align-items:center">
-                            <span data-lang-current>🇬🇧</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end" style="min-width:auto">
-                            <li><a class="dropdown-item active" href="#" data-lang="en" title="English">🇬🇧</a></li>
-                            <li><a class="dropdown-item" href="#" data-lang="fr" title="Français">🇫🇷</a></li>
-                            <li><a class="dropdown-item" href="#" data-lang="es" title="Español">🇪🇸</a></li>
-                            <li><a class="dropdown-item" href="#" data-lang="it" title="Italiano">🇮🇹</a></li>
-                            <li><a class="dropdown-item" href="#" data-lang="de" title="Deutsch">🇩🇪</a></li>
-                        </ul>
-                    </div>
-
-                    <div id="ao-auth-control"></div>
+                    <ul class="dropdown-menu dropdown-menu-end" style="min-width:auto">
+                        <li><a class="dropdown-item active" href="#" data-lang="en" title="English">🇬🇧</a></li>
+                        <li><a class="dropdown-item" href="#" data-lang="fr" title="Français">🇫🇷</a></li>
+                        <li><a class="dropdown-item" href="#" data-lang="es" title="Español">🇪🇸</a></li>
+                        <li><a class="dropdown-item" href="#" data-lang="it" title="Italiano">🇮🇹</a></li>
+                        <li><a class="dropdown-item" href="#" data-lang="de" title="Deutsch">🇩🇪</a></li>
+                    </ul>
                 </div>
-            </div>
-        </div>
 
-        <div class="az-navband" id="azNav">
-            <div class="az-navband-inner">
-                <ul class="navbar-nav az-nav-list d-flex flex-row">
-                    <li class="nav-item">
-                        <a data-cfg-href="{reunionWebBase}/pages/index" class="nav-link">
-                            <i class="fa-solid fa-house"></i><span data-i18n="nav.home">Home</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a data-cfg-href="{reunionWebBase}/pages/news" class="nav-link">
-                            <i class="fa-solid fa-newspaper"></i><span data-i18n="nav.news">News</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a data-cfg-href="{reunionWebBase}/pages/cards" class="nav-link">
-                            <i class="fa-solid fa-layer-group"></i><span data-i18n="nav.cards">Cards</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a data-cfg-href="{reunionWebBase}/pages/decks" class="nav-link">
-                            <i class="fa-solid fa-table-list"></i><span data-i18n="nav.decks">Decks</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/" class="nav-link active">
-                            <i class="fa-solid fa-box-archive"></i><span data-i18n="nav.collection">Collection</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="https://boardgamearena.com/gamepanel?game=altered" class="nav-link" target="_blank" rel="noopener noreferrer">
-                            <i class="fa-solid fa-dice"></i><span data-i18n="nav.play">Play</span>
-                        </a>
-                    </li>
-                </ul>
+                <div id="ao-auth-control"></div>
             </div>
         </div>
     </header>
@@ -93,26 +48,26 @@
     </div>
 
     <main id="ao-main" class="container py-4">
-        <h1 class="text-uppercase mb-4" data-i18n="main.title">Collection importer</h1>
+        <h1 class="h3 mb-4" data-i18n="main.title">Collection importer</h1>
 
-        <h2 class="h5 text-uppercase mt-4" data-i18n="section.why.title">What for?</h2>
+        <h2 class="h5 mt-4" data-i18n="section.why.title">What for?</h2>
         <div data-i18n-html="section.why.body"></div>
         <hr class="my-4" />
 
-        <h2 class="h5 text-uppercase mt-4" data-i18n="section.export.title">How do I export my current collection?</h2>
+        <h2 class="h5 mt-4" data-i18n="section.export.title">How do I export my current collection?</h2>
         <div data-i18n-html="section.export.body"></div>
         <hr class="my-4" />
 
-        <h2 class="h5 text-uppercase mt-4" data-i18n="section.whatImported.title">What will be imported?</h2>
+        <h2 class="h5 mt-4" data-i18n="section.whatImported.title">What will be imported?</h2>
         <div data-i18n-html="section.whatImported.body"></div>
         <hr class="my-4" />
 
-        <h2 class="h5 text-uppercase mt-4" data-i18n="section.terms.title">What are the terms?</h2>
+        <h2 class="h5 mt-4" data-i18n="section.terms.title">What are the terms?</h2>
         <div data-i18n-html="section.terms.body"></div>
 
         <section id="ao-import" class="card mt-4">
             <div class="card-body">
-                <h2 class="h5 card-title text-uppercase" data-i18n="import.title">Import my collection</h2>
+                <h2 class="h5 card-title" data-i18n="import.title">Import my collection</h2>
 
                 <div id="ao-import-anon" hidden>
                     <a href="/api/auth/login?returnUrl=/" class="btn btn-primary">
@@ -142,7 +97,7 @@
 
         <hr class="my-4 mt-5" />
 
-        <h2 class="h5 text-uppercase mt-4" data-i18n="section.newCards.title">How can I get new cards?</h2>
+        <h2 class="h5 mt-4" data-i18n="section.newCards.title">How can I get new cards?</h2>
         <div data-i18n-html="section.newCards.body"></div>
     </main>
 

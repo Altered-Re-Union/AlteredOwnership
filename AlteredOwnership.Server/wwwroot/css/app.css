@@ -1,10 +1,105 @@
-:root[data-theme='dark'] { color-scheme: dark; }
-:root[data-theme='light'] { color-scheme: light; }
+:root {
+    color-scheme: light;
+    --ao-accent: #4f46e5;
+    --ao-accent-hover: #4338ca;
+    --ao-accent-active: #3730a3;
+    --ao-surface: #ffffff;
+    --ao-border: #e6e8f0;
+}
+
+body {
+    background-color: #f8f9fb;
+}
+
+/* Recolor Bootstrap's primary buttons/links to the indigo accent without a custom build. */
+.btn-primary {
+    --bs-btn-bg: var(--ao-accent);
+    --bs-btn-border-color: var(--ao-accent);
+    --bs-btn-hover-bg: var(--ao-accent-hover);
+    --bs-btn-hover-border-color: var(--ao-accent-hover);
+    --bs-btn-active-bg: var(--ao-accent-active);
+    --bs-btn-active-border-color: var(--ao-accent-active);
+    --bs-btn-disabled-bg: var(--ao-accent);
+    --bs-btn-disabled-border-color: var(--ao-accent);
+}
+
+a {
+    color: var(--ao-accent);
+}
+
+a:hover {
+    color: var(--ao-accent-hover);
+}
+
+/* Header */
+.ao-header {
+    background-color: var(--ao-surface);
+    border-bottom: 1px solid var(--ao-border);
+}
+
+.ao-header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ao-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.ao-logo {
+    height: 40px;
+    width: 40px;
+}
+
+.ao-brand-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+    color: #1f2330;
+}
+
+.ao-header-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ao-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: #5a6072;
+    white-space: nowrap;
+}
+
+.ao-back-link:hover {
+    color: var(--ao-accent);
+}
 
 #ao-auth-control {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+}
+
+@media (max-width: 575.98px) {
+    .ao-brand-name { display: none; }
+    .ao-back-link span { display: none; }
+}
+
+/* Content */
+#ao-main {
+    max-width: 960px;
 }
 
 .ao-test-banner {

@@ -1,10 +1,8 @@
 (() => {
     const html = document.documentElement;
-    const THEME_KEY = 'ar_theme';
     const LANG_KEY = 'ar_lang';
     const LANG_FLAGS = { en: '🇬🇧', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', de: '🇩🇪' };
     const DEFAULT_LANG = 'en';
-    const DEFAULT_THEME = 'light';
 
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -32,19 +30,6 @@
             el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
         });
     };
-
-    // Theme
-    const applyTheme = (theme) => {
-        html.dataset.theme = theme;
-        const icon = document.querySelector('#header-theme-toggle i');
-        if (icon) icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    };
-    applyTheme(localStorage.getItem(THEME_KEY) || DEFAULT_THEME);
-    document.getElementById('header-theme-toggle')?.addEventListener('click', () => {
-        const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
-        localStorage.setItem(THEME_KEY, next);
-        applyTheme(next);
-    });
 
     // Language
     const applyLang = (lang) => {
@@ -90,7 +75,7 @@
         if (importAnonBlock) importAnonBlock.hidden = false;
         if (importAuthBlock) importAuthBlock.hidden = true;
         authControl.innerHTML =
-            '<a href="/api/auth/login?returnUrl=/" class="btn-login">' +
+            '<a href="/api/auth/login?returnUrl=/" class="btn btn-sm btn-primary">' +
             '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(t('auth.login')) + '</span></a>';
     };
     const renderUser = (me) => {
@@ -102,7 +87,7 @@
         const email = me.email || '';
         authControl.innerHTML =
             '<div class="dropdown">' +
-                '<button class="btn-user-badge dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">' +
+                '<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">' +
                     '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(name) + '</span>' +
                 '</button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +

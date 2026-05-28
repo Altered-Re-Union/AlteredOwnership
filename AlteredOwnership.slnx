@@ -2,8 +2,4 @@
   <Project Path="AlteredOwnership.AppHost/AlteredOwnership.AppHost.csproj" />
   <Project Path="AlteredOwnership.Server/AlteredOwnership.Server.csproj" />
   <Project Path="AlteredOwnership.Server.Tests/AlteredOwnership.Server.Tests.csproj" />
-  <Project Path="frontend/frontend.esproj">
-    <Build />
-    <Deploy />
-  </Project>
 </Solution>
