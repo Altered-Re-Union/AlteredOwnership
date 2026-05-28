@@ -31,7 +31,11 @@ builder.Services.AddOptions<ExternalHostsOptions>()
     .Bind(builder.Configuration.GetSection(ExternalHostsOptions.SectionName));
 
 builder.Services.AddOptions<EquinoxImportOptions>()
-    .Bind(builder.Configuration.GetSection(EquinoxImportOptions.SectionName));
+    .Bind(builder.Configuration.GetSection(EquinoxImportOptions.SectionName))
+    .Validate(
+        o => !o.AllowUnencrypted || !builder.Environment.IsProduction(),
+        "EquinoxImport:AllowUnencrypted is a dev-only escape hatch and must not be enabled in Production.")
+    .ValidateOnStart();
 
 var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.SectionName).Get<ExternalHostsOptions>()
     ?? throw new InvalidOperationException("Missing 'ExternalHosts' configuration section.");

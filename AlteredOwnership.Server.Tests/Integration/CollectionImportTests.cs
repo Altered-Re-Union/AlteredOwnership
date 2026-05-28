@@ -3,7 +3,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
-using AlteredOwnership.Server.Infrastructure.Crypto;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace AlteredOwnership.Server.Tests.Integration;
 
@@ -13,20 +14,22 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
 
     private const string Header = "card_reference;card_name;rarity;quantity\n";
 
-    private static readonly byte[] Key = Convert.FromHexString(OwnershipApiFactory.DecryptionKeyHex);
+    // Import runs in the dev-only unencrypted mode so tests need no shared key:
+    // the upload carries the plaintext clear/collection.csv entry.
+    private readonly HttpClient _client = factory
+        .WithWebHostBuilder(b => b.UseSetting("EquinoxImport:AllowUnencrypted", "true"))
+        .CreateClient();
 
     private static string TimestampLine(string timestamp) => $"\"{timestamp}\";;;\n";
 
     private static MultipartFormDataContent BuildImport(string csv)
     {
-        var encrypted = SecretBoxFile.Encrypt(Encoding.UTF8.GetBytes(csv), Key);
-
         using var zipStream = new MemoryStream();
         using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
         {
-            var entry = archive.CreateEntry("encrypted/collection.csv.enc");
+            var entry = archive.CreateEntry("clear/collection.csv");
             using var entryStream = entry.Open();
-            entryStream.Write(encrypted);
+            entryStream.Write(Encoding.UTF8.GetBytes(csv));
         }
 
         var content = new MultipartFormDataContent();
@@ -37,18 +40,18 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
         return content;
     }
 
-    private static async Task<HttpResponseMessage> ImportAsAsync(HttpClient client, string user, string csv)
+    private async Task<HttpResponseMessage> ImportAsAsync(string user, string csv)
     {
         using var content = BuildImport(csv);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/collection/import") { Content = content };
         request.Headers.Add(TestAuthHandler.UserHeader, user);
-        return await client.SendAsync(request);
+        return await _client.SendAsync(request);
     }
 
     [Fact]
     public async Task Import_then_get_returns_only_alt_arts_and_uniques()
     {
-        var client = factory.CreateClient();
+        var client = _client;
 
         var csv =
             TimestampLine("2026-05-20 17:14:43") +
@@ -76,9 +79,22 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public void Unencrypted_mode_refuses_to_start_in_production()
+    {
+        var app = factory.WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment("Production");
+            b.UseSetting("EquinoxImport:AllowUnencrypted", "true");
+        });
+
+        var ex = Assert.Throws<OptionsValidationException>(() => app.CreateClient());
+        Assert.Contains("must not be enabled in Production", ex.Message);
+    }
+
+    [Fact]
     public async Task Import_without_timestamp_is_rejected()
     {
-        var client = factory.CreateClient();
+        var client = _client;
 
         // Old-format export: no timestamp line, straight to the column header.
         var csv =
@@ -96,7 +112,7 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
     [Fact]
     public async Task Reimporting_same_cards_with_different_timestamp_fails()
     {
-        var client = factory.CreateClient();
+        var client = _client;
 
         // Regular core card (dropped from the projection) so this test never
         // pollutes the exact-count assertion in the import-then-get test.
@@ -145,8 +161,6 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
     [Fact]
     public async Task Two_people_importing_the_same_file_second_fails()
     {
-        var client = factory.CreateClient();
-
         // Non-unique alt-art card: both users could legitimately own it, so the
         // only thing that can fail the second import is the global export dedup.
         var csv =
@@ -154,10 +168,10 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             Header +
             "ALT_ALIZE_A_AX_50_C;Shared file;Commun;3\n";
 
-        var first = await ImportAsAsync(client, "two-people-same-file-a", csv);
+        var first = await ImportAsAsync("two-people-same-file-a", csv);
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
-        var second = await ImportAsAsync(client, "two-people-same-file-b", csv);
+        var second = await ImportAsAsync("two-people-same-file-b", csv);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         var body = await second.Content.ReadAsStringAsync();
         Assert.Contains("déjà été importé", body);
@@ -166,18 +180,16 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
     [Fact]
     public async Task Two_people_importing_files_differing_only_by_timestamp_second_fails()
     {
-        var client = factory.CreateClient();
-
         const string cards = "ALT_ALIZE_A_AX_51_C;Shared file;Commun;3\n";
 
         var first = await ImportAsAsync(
-            client, "two-people-diff-ts-a", TimestampLine("2026-05-20 17:14:43") + Header + cards);
+            "two-people-diff-ts-a", TimestampLine("2026-05-20 17:14:43") + Header + cards);
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
         // Same cards, only the export timestamp differs: the dedup hash ignores it,
         // so the second person is still rejected as a duplicate.
         var second = await ImportAsAsync(
-            client, "two-people-diff-ts-b", TimestampLine("2026-05-21 09:00:00") + Header + cards);
+            "two-people-diff-ts-b", TimestampLine("2026-05-21 09:00:00") + Header + cards);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         var body = await second.Content.ReadAsStringAsync();
         Assert.Contains("déjà été importé", body);

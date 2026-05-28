@@ -43,29 +43,41 @@ public static class CollectionEndpoints
             if (file.Length == 0)
                 return Results.BadRequest("Uploaded file is empty.");
 
-            // Server-side config: a bad/missing key is a misconfiguration, so let it surface.
-            var key = Convert.FromHexString(importOptions.Value.DecryptionKeyHex);
+            var allowUnencrypted = importOptions.Value.AllowUnencrypted;
 
             EquinoxCsvParser.ParseResult parsed;
             try
             {
                 await using var fileStream = file.OpenReadStream();
                 using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read);
-                var entry = archive.Entries.FirstOrDefault(e =>
-                    string.Equals(e.FullName, "encrypted/collection.csv.enc", StringComparison.OrdinalIgnoreCase));
-                if (entry is null)
-                    return Results.BadRequest("Archive does not contain encrypted/collection.csv.enc.");
 
-                byte[] encrypted;
+                var entryName = allowUnencrypted ? "clear/collection.csv" : "encrypted/collection.csv.enc";
+                var entry = archive.Entries.FirstOrDefault(e =>
+                    string.Equals(e.FullName, entryName, StringComparison.OrdinalIgnoreCase));
+                if (entry is null)
+                    return Results.BadRequest($"Archive does not contain {entryName}.");
+
+                byte[] entryBytes;
                 await using (var entryStream = entry.Open())
                 {
                     using var buffer = new MemoryStream();
                     await entryStream.CopyToAsync(buffer, ct);
-                    encrypted = buffer.ToArray();
+                    entryBytes = buffer.ToArray();
                 }
 
-                var decrypted = SecretBoxFile.Decrypt(encrypted, key);
-                using var csvStream = new MemoryStream(decrypted);
+                byte[] csvBytes;
+                if (allowUnencrypted)
+                {
+                    csvBytes = entryBytes;
+                }
+                else
+                {
+                    // Server-side config: a bad/missing key is a misconfiguration, so let it surface.
+                    var key = Convert.FromHexString(importOptions.Value.DecryptionKeyHex);
+                    csvBytes = SecretBoxFile.Decrypt(entryBytes, key);
+                }
+
+                using var csvStream = new MemoryStream(csvBytes);
                 parsed = await EquinoxCsvParser.ParseAsync(csvStream, ct);
             }
             catch (InvalidDataException)
