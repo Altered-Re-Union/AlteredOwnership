@@ -122,8 +122,7 @@ public static class CollectionEndpoints
             }
             return Results.NoContent();
         })
-        .RequireAuthorization(AuthConstants.ImportPolicy)
-        .DisableAntiforgery();
+        .RequireAuthorization(AuthConstants.ImportPolicy);
 
         return routes;
     }

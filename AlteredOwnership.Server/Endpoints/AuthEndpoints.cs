@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,8 @@ namespace AlteredOwnership.Server.Endpoints;
 public static class AuthEndpoints
 {
     public record MeResponse(string Sub, string? Pseudo, string? Email);
+
+    public record CsrfResponse(string Token);
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder routes)
     {
@@ -52,6 +55,14 @@ public static class AuthEndpoints
         }).RequireAuthorization(p => p
             .AddAuthenticationSchemes(AuthConstants.CookieScheme)
             .RequireAuthenticatedUser());
+
+        // Issues an antiforgery request token (and sets the paired secret cookie) bound
+        // to the current cookie session. The SPA echoes it back in the X-CSRF-TOKEN header.
+        group.MapGet("csrf", (HttpContext ctx, IAntiforgery antiforgery) =>
+        {
+            var tokens = antiforgery.GetAndStoreTokens(ctx);
+            return Results.Ok(new CsrfResponse(tokens.RequestToken!));
+        }).RequireAuthorization(AuthConstants.SessionPolicy);
 
         // Returns the current user's identity, or 401 if not authenticated.
         group.MapGet("me", (HttpContext ctx) =>

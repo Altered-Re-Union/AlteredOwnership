@@ -77,6 +77,14 @@
     const SILENT_LOGIN_KEY = 'ao_silent_login_tried';
     // null = unknown yet, 'anonymous' = login button, object = signed-in user.
     let currentAuth = null;
+    // Antiforgery request token for the current session, fetched once we're signed in.
+    let csrfToken = null;
+    const fetchCsrfToken = async () => {
+        try {
+            const res = await fetch('/api/auth/csrf', { credentials: 'same-origin' });
+            if (res.ok) csrfToken = (await res.json()).token;
+        } catch { /* leave null; protected calls will surface the error */ }
+    };
     const renderLogin = () => {
         currentAuth = 'anonymous';
         if (importAnonBlock) importAnonBlock.hidden = false;
@@ -105,6 +113,7 @@
                     '<li><hr class="dropdown-divider"></li>' +
                     '<li>' +
                         '<form method="POST" action="/api/auth/logout" style="margin:0">' +
+                            (csrfToken ? '<input type="hidden" name="__RequestVerificationToken" value="' + escapeHtml(csrfToken) + '">' : '') +
                             '<button type="submit" class="dropdown-item text-danger">' +
                                 '<i class="fa-solid fa-right-from-bracket me-1"></i>' + escapeHtml(t('auth.logout')) +
                             '</button>' +
@@ -134,7 +143,10 @@
         try {
             const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
             if (!res.ok) { tryAutoLogin(); return; }
-            renderUser(await res.json());
+            const me = await res.json();
+            // Token is session-bound, so fetch it before rendering anything that uses it.
+            await fetchCsrfToken();
+            renderUser(me);
         } catch {
             renderLogin();
         }
@@ -173,6 +185,7 @@
             const res = await fetch('/api/collection/import', {
                 method: 'POST',
                 credentials: 'same-origin',
+                headers: csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {},
                 body,
             });
             if (res.status === 204) {

@@ -20,6 +20,8 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
         .WithWebHostBuilder(b => b.UseSetting("EquinoxImport:AllowUnencrypted", "true"))
         .CreateClient();
 
+    private record CsrfResponse(string Token);
+
     private static string TimestampLine(string timestamp) => $"\"{timestamp}\";;;\n";
 
     private static MultipartFormDataContent BuildImport(string csv)
@@ -40,12 +42,27 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
         return content;
     }
 
-    private async Task<HttpResponseMessage> ImportAsAsync(string user, string csv)
+    // GET the session-bound antiforgery token; the response also sets the paired cookie,
+    // which the cookie-handling test client carries to the subsequent import POST.
+    private static async Task<string> FetchCsrfAsync(HttpClient client, string? user = null)
     {
-        using var content = BuildImport(csv);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/collection/import") { Content = content };
-        request.Headers.Add(TestAuthHandler.UserHeader, user);
-        return await _client.SendAsync(request);
+        using var req = new HttpRequestMessage(HttpMethod.Get, "/api/auth/csrf");
+        if (user is not null) req.Headers.Add(TestAuthHandler.UserHeader, user);
+        using var res = await client.SendAsync(req);
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<CsrfResponse>())!.Token;
+    }
+
+    private static async Task<HttpResponseMessage> PostImportAsync(HttpClient client, string csv, string? user = null)
+    {
+        var token = await FetchCsrfAsync(client, user);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/collection/import")
+        {
+            Content = BuildImport(csv),
+        };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        if (user is not null) request.Headers.Add(TestAuthHandler.UserHeader, user);
+        return await client.SendAsync(request);
     }
 
     [Fact]
@@ -62,8 +79,7 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             "ALT_ALIZE_B_AX_32_U_4624;Unique;Unique;1\n" +        // unique  -> kept
             "ALT_DUSTERTOP_B_AX_01_C;Topdust;Commun;2\n";         // dedicated set -> kept
 
-        using var content = BuildImport(csv);
-        var importResponse = await client.PostAsync("/api/collection/import", content);
+        var importResponse = await PostImportAsync(client, csv);
         Assert.Equal(HttpStatusCode.NoContent, importResponse.StatusCode);
 
         var collection = await client.GetFromJsonAsync<CardOwnershipResponse[]>("/api/collection");
@@ -101,8 +117,7 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             Header +
             "ALT_ALIZE_A_AX_35_C;Vaike;Commun;3\n";
 
-        using var content = BuildImport(csv);
-        var response = await client.PostAsync("/api/collection/import", content);
+        var response = await PostImportAsync(client, csv);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
@@ -118,13 +133,11 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
         // pollutes the exact-count assertion in the import-then-get test.
         const string cards = "ALT_ALIZE_B_AX_99_C;Reimport probe;Commun;2\n";
 
-        using var first = BuildImport(TimestampLine("2026-05-20 17:14:43") + Header + cards);
-        var firstResponse = await client.PostAsync("/api/collection/import", first);
+        var firstResponse = await PostImportAsync(client, TimestampLine("2026-05-20 17:14:43") + Header + cards);
         Assert.Equal(HttpStatusCode.NoContent, firstResponse.StatusCode);
 
         // Same collection, different export timestamp: still a duplicate.
-        using var second = BuildImport(TimestampLine("2026-05-21 09:00:00") + Header + cards);
-        var secondResponse = await client.PostAsync("/api/collection/import", second);
+        var secondResponse = await PostImportAsync(client, TimestampLine("2026-05-21 09:00:00") + Header + cards);
 
         Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
         var body = await secondResponse.Content.ReadAsStringAsync();
@@ -145,17 +158,36 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             entryStream.Write(new byte[64]);
         }
 
-        using var content = new MultipartFormDataContent();
+        var content = new MultipartFormDataContent();
         var zipContent = new ByteArrayContent(zipStream.ToArray());
         zipContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
         content.Add(zipContent, "file", "collection.zip");
         content.Add(new StringContent("true"), "termsAccepted");
 
-        var response = await client.PostAsync("/api/collection/import", content);
+        var token = await FetchCsrfAsync(client);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/collection/import") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("Could not decrypt", body);
+    }
+
+    [Fact]
+    public async Task Import_without_csrf_token_is_rejected()
+    {
+        var csv =
+            TimestampLine("2026-05-23 12:00:00") +
+            Header +
+            "ALT_ALIZE_A_AX_70_C;No token;Commun;1\n";
+
+        // Authenticated cookie request but no antiforgery token/cookie: the CSRF
+        // middleware must reject it before the endpoint runs.
+        using var content = BuildImport(csv);
+        var response = await _client.PostAsync("/api/collection/import", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -168,10 +200,10 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
             Header +
             "ALT_ALIZE_A_AX_50_C;Shared file;Commun;3\n";
 
-        var first = await ImportAsAsync("two-people-same-file-a", csv);
+        var first = await PostImportAsync(_client, csv, "two-people-same-file-a");
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
-        var second = await ImportAsAsync("two-people-same-file-b", csv);
+        var second = await PostImportAsync(_client, csv, "two-people-same-file-b");
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         var body = await second.Content.ReadAsStringAsync();
         Assert.Contains("déjà été importé", body);
@@ -182,14 +214,14 @@ public class CollectionImportTests(OwnershipApiFactory factory) : IClassFixture<
     {
         const string cards = "ALT_ALIZE_A_AX_51_C;Shared file;Commun;3\n";
 
-        var first = await ImportAsAsync(
-            "two-people-diff-ts-a", TimestampLine("2026-05-20 17:14:43") + Header + cards);
+        var first = await PostImportAsync(
+            _client, TimestampLine("2026-05-20 17:14:43") + Header + cards, "two-people-diff-ts-a");
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
         // Same cards, only the export timestamp differs: the dedup hash ignores it,
         // so the second person is still rejected as a duplicate.
-        var second = await ImportAsAsync(
-            "two-people-diff-ts-b", TimestampLine("2026-05-21 09:00:00") + Header + cards);
+        var second = await PostImportAsync(
+            _client, TimestampLine("2026-05-21 09:00:00") + Header + cards, "two-people-diff-ts-b");
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         var body = await second.Content.ReadAsStringAsync();
         Assert.Contains("déjà été importé", body);

@@ -156,6 +156,12 @@ public static class AuthExtensions
                 .AddAuthenticationSchemes(AuthConstants.CookieScheme, AuthConstants.BearerScheme)
                 .RequireAuthenticatedUser()
                 .RequireAssertion(ctx => HasScope(ctx.User, AuthConstants.ReadScope)));
+
+            // Any logged-in SPA session via cookie; no scope. Used by session-bound
+            // endpoints (me, logout, csrf) that just need an authenticated user.
+            opt.AddPolicy(AuthConstants.SessionPolicy, p => p
+                .AddAuthenticationSchemes(AuthConstants.CookieScheme)
+                .RequireAuthenticatedUser());
         });
 
         return services;

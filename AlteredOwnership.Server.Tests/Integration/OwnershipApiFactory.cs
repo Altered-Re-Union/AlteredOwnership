@@ -69,6 +69,9 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
                 opt.AddPolicy(AuthConstants.ReadPolicy, p => p
                     .AddAuthenticationSchemes(TestAuthHandler.SchemeName)
                     .RequireAuthenticatedUser());
+                opt.AddPolicy(AuthConstants.SessionPolicy, p => p
+                    .AddAuthenticationSchemes(TestAuthHandler.SchemeName)
+                    .RequireAuthenticatedUser());
             });
         });
     }

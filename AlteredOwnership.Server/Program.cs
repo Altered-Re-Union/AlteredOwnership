@@ -6,6 +6,8 @@ using AlteredOwnership.Server.Infrastructure.Auth;
 using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,6 +22,17 @@ builder.AddNpgsqlDbContext<OwnershipDbContext>("ownershipdb");
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddAntiforgery(o =>
+{
+    o.HeaderName = AuthConstants.CsrfHeaderName;
+    o.Cookie.Name = "ao.csrf";
+    // Always over the TLS edge in prod (Traefik forwards https); SameAsRequest elsewhere
+    // since antiforgery hard-fails when Always meets a plain-HTTP dev/test request.
+    o.Cookie.SecurePolicy = builder.Environment.IsProduction()
+        ? CookieSecurePolicy.Always
+        : CookieSecurePolicy.SameAsRequest;
+});
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<CurrentUserAccessor>();
@@ -92,6 +105,45 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// CSRF, secure by default. UseAntiforgery() validates endpoints the framework already
+// flags (e.g. form/IFormFile uploads like import). The middleware below closes the gap:
+// it validates every *other* cookie-authenticated unsafe request (JSON or no-body POSTs,
+// logout, future write endpoints) so they're protected without per-endpoint wiring.
+// Token-based (Bearer) callers aren't a CSRF vector, and any endpoint can opt out with
+// .DisableAntiforgery() — which also marks it here as already-handled/opted-out.
+app.UseAntiforgery();
+app.Use(async (ctx, next) =>
+{
+    var method = ctx.Request.Method;
+    var isUnsafe = !HttpMethods.IsGet(method) && !HttpMethods.IsHead(method)
+        && !HttpMethods.IsOptions(method) && !HttpMethods.IsTrace(method);
+
+    if (isUnsafe && ctx.GetEndpoint() is { } endpoint)
+    {
+        // Any IAntiforgeryMetadata means UseAntiforgery() owns this endpoint
+        // (RequiresValidation true) or it explicitly opted out (false).
+        var handledByFramework = endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>() is not null;
+        var isBearer = ctx.Request.Headers.Authorization
+            .Any(h => h is not null && h.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase));
+
+        if (!handledByFramework && !isBearer)
+        {
+            try
+            {
+                await ctx.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(ctx);
+            }
+            catch (AntiforgeryValidationException)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
+        }
+    }
+
+    await next();
+});
+
 app.UseOutputCache();
 
 app.MapAuthEndpoints();
