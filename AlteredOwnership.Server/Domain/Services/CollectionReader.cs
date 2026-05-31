@@ -52,14 +52,20 @@ public class CollectionReader(OwnershipDbContext db)
             .AsNoTracking()
             .ToListAsync(ct);
 
-        return rows
+        var items = rows
             .Select(r => new CardCollectionItemResponse(
                 r.CardReference, r.Quantity,
                 Localize(r.Name, locale), Localize(r.ImagePath, locale),
                 r.Set, r.Faction, r.Rarity, r.CardType, r.Variation, r.SubTypes,
                 r.IsBanned, r.IsSuspended,
-                r.MainCost, r.RecallCost, r.Forest, r.Mountain, r.Ocean))
-            .ToList();
+                r.MainCost, r.RecallCost, r.Forest, r.Mountain, r.Ocean));
+
+        // Name search runs on the localized name (the jsonb column is opaque to SQL).
+        if (!string.IsNullOrWhiteSpace(q.Name))
+            items = items.Where(i =>
+                i.Name is not null && i.Name.Contains(q.Name, StringComparison.OrdinalIgnoreCase));
+
+        return items.ToList();
     }
 
     // Picks the requested locale, falling back to English.

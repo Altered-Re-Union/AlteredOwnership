@@ -18,6 +18,9 @@ public readonly record struct NumericFilter(
 // separate presentation concern bound by the endpoint, not part of the filter.
 public sealed class CollectionQuery
 {
+    // Case-insensitive substring match on the card name in the requested locale. Applied in
+    // memory after localization (the jsonb name column is opaque to SQL via its converter).
+    public string? Name { get; init; }
     public IReadOnlyList<string> Sets { get; init; } = [];
     public IReadOnlyList<string> Factions { get; init; } = [];
     public IReadOnlyList<string> Rarities { get; init; } = [];
@@ -36,8 +39,11 @@ public sealed class CollectionQuery
     {
         var q = ctx.Request.Query;
 
+        var name = q["name"].FirstOrDefault();
+
         var query = new CollectionQuery
         {
+            Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim(),
             Sets = Array(q, "set[]"),
             Factions = Array(q, "faction[]"),
             Rarities = Array(q, "rarity[]"),

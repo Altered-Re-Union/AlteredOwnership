@@ -143,6 +143,13 @@ public class CardCatalogTests(OwnershipApiFactory factory) : IClassFixture<Owner
         Assert.Equal("Wolf", Assert.Single(en).Name);
         var de = await GetCollectionAsync(client, "?faction[]=AX&locale=de", user);
         Assert.Equal("Wolf", Assert.Single(de).Name);
+
+        // Name search on the localized name (case-insensitive substring).
+        var byNameEn = await GetCollectionAsync(client, "?name=wol&locale=en", user);
+        Assert.Equal(refs[0], Assert.Single(byNameEn).Reference);
+        var byNameFr = await GetCollectionAsync(client, "?name=LOUP&locale=fr", user);
+        Assert.Equal(refs[0], Assert.Single(byNameFr).Reference);
+        Assert.Empty(await GetCollectionAsync(client, "?name=zzz", user));
     }
 
     [Fact]
