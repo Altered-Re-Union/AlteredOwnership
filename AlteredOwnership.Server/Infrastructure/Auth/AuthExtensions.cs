@@ -76,6 +76,21 @@ public static class AuthExtensions
                 o.CallbackPath = "/api/auth/callback";
                 o.SignedOutCallbackPath = "/api/auth/signout-callback";
 
+                if (env.IsDevelopment())
+                {
+                    // Over plain HTTP (local dev), the OIDC correlation/nonce cookies
+                    // default to SameSite=None, which browsers reject unless Secure —
+                    // so they're never stored and the callback fails with
+                    // "Correlation failed". Lax is stored over HTTP and is still sent
+                    // on the top-level GET redirect back from Keycloak (code flow uses
+                    // the query response mode), so the round-trip works. Prod stays on
+                    // the secure defaults (HTTPS edge via Traefik).
+                    o.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                    o.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                    o.NonceCookie.SameSite = SameSiteMode.Lax;
+                    o.NonceCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                }
+
                 o.Scope.Clear();
                 o.Scope.Add("openid");
                 o.Scope.Add("profile");
