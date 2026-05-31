@@ -57,6 +57,7 @@ var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.Sectio
 
 builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
     http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
+builder.Services.AddHostedService<CardCatalogRefreshService>();
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 

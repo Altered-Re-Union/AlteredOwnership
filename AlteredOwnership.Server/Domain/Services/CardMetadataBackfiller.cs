@@ -17,6 +17,7 @@ public class CardMetadataBackfiller(
 {
     private const int BatchSize = 100; // the catalog API caps a batch at 200 references
 
+    // Backfills the catalog for the references a single user just imported.
     public async Task BackfillAsync(Guid userId, CancellationToken ct)
     {
         var missing = await db.CardOwnerships
@@ -24,6 +25,24 @@ public class CardMetadataBackfiller(
             .Select(co => co.CardReference)
             .ToListAsync(ct);
 
+        await BackfillReferencesAsync(missing, ct);
+    }
+
+    // Backfills every owned-but-uncatalogued reference across all users. Used by the hourly
+    // refresh job to recover references whose import-time backfill failed.
+    public async Task BackfillMissingAsync(CancellationToken ct)
+    {
+        var missing = await db.CardOwnerships
+            .Where(co => !db.Cards.Any(c => c.Reference == co.CardReference))
+            .Select(co => co.CardReference)
+            .Distinct()
+            .ToListAsync(ct);
+
+        await BackfillReferencesAsync(missing, ct);
+    }
+
+    private async Task BackfillReferencesAsync(IReadOnlyList<string> missing, CancellationToken ct)
+    {
         if (missing.Count == 0)
             return;
 
@@ -35,7 +54,7 @@ public class CardMetadataBackfiller(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Card metadata backfill failed for {Count} references; will retry on next import.", missing.Count);
+                "Card metadata backfill failed for {Count} references; will retry later.", missing.Count);
         }
     }
 

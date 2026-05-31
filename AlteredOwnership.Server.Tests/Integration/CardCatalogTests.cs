@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text;
 using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
+using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Infrastructure.Cards;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -142,6 +143,46 @@ public class CardCatalogTests(OwnershipApiFactory factory) : IClassFixture<Owner
         Assert.Equal("Wolf", Assert.Single(en).Name);
         var de = await GetCollectionAsync(client, "?faction[]=AX&locale=de", user);
         Assert.Equal("Wolf", Assert.Single(de).Name);
+    }
+
+    [Fact]
+    public async Task Hourly_refresh_backfills_missing_cards_across_users()
+    {
+        // Two users import while the catalog API is down (default NullCardsClient) -> the
+        // cards stay uncatalogued.
+        var client = factory
+            .WithWebHostBuilder(b => b.UseSetting("EquinoxImport:AllowUnencrypted", "true"))
+            .CreateClient();
+        const string refA = "ALT_ALIZE_A_AX_80_C";
+        const string refB = "ALT_ALIZE_A_BR_81_C";
+
+        await PostImportAsync(client,
+            TimestampLine("2026-05-20 17:14:43") + Header + $"{refA};A;Commun;1\n", "refresh-user-a");
+        await PostImportAsync(client,
+            TimestampLine("2026-05-20 17:14:43") + Header + $"{refB};B;Commun;1\n", "refresh-user-b");
+
+        Assert.Null(Assert.Single(await GetCollectionAsync(client, "", "refresh-user-a")).Name);
+        Assert.Null(Assert.Single(await GetCollectionAsync(client, "", "refresh-user-b")).Name);
+
+        // The hourly refresh (run directly here) backfills every missing reference, across
+        // all users, with a working client.
+        var recording = new RecordingCardsClient(refs => refs.Select(Dto).ToList());
+        var refreshFactory = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.RemoveAll<IAlteredCardsClient>();
+            s.AddSingleton<IAlteredCardsClient>(recording);
+        }));
+        using (var scope = refreshFactory.Services.CreateScope())
+        {
+            var backfiller = scope.ServiceProvider.GetRequiredService<CardMetadataBackfiller>();
+            await backfiller.BackfillMissingAsync(CancellationToken.None);
+        }
+
+        Assert.Equal($"en:{refA}", Assert.Single(await GetCollectionAsync(client, "?locale=en", "refresh-user-a")).Name);
+        Assert.Equal($"en:{refB}", Assert.Single(await GetCollectionAsync(client, "?locale=en", "refresh-user-b")).Name);
+        var requested = recording.Calls.SelectMany(c => c).Distinct().ToList();
+        Assert.Contains(refA, requested);
+        Assert.Contains(refB, requested);
     }
 
     // --- helpers -----------------------------------------------------------------
