@@ -10,4 +10,8 @@ public class ExternalHostsOptions
 
     // Absolute base URL for the Keycloak auth host (CSP form-action and surfaced to the SPA).
     public string AuthBase { get; set; } = "";
+
+    // Absolute base URL of the card catalog API (cards.alteredcore.org). Server-only:
+    // queried during import to backfill card metadata. Not surfaced to the SPA.
+    public string CardsApiBase { get; set; } = "";
 }

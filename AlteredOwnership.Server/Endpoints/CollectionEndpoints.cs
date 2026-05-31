@@ -10,23 +10,32 @@ using Microsoft.Extensions.Options;
 
 namespace AlteredOwnership.Server.Endpoints;
 
+// One owned card with its catalog metadata resolved to the requested locale (all card
+// fields null when the card isn't catalogued yet).
+public record CardCollectionItemResponse(
+    string Reference, int Quantity,
+    string? Name, string? ImagePath,
+    string? Set, string? Faction, string? Rarity, string? CardType,
+    string? Variation, IReadOnlyList<string>? SubTypes,
+    bool? IsBanned, bool? IsSuspended,
+    int? MainCost, int? RecallCost, int? Forest, int? Mountain, int? Ocean);
+
 public static class CollectionEndpoints
 {
-    public record CardOwnershipResponse(string Reference, int Quantity);
-
     public static IEndpointRouteBuilder MapCollectionEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/collection");
 
         group.MapGet("", async (
+            CollectionQuery query,
+            string? locale,
             CurrentUserAccessor currentUser,
             CollectionReader reader,
             CancellationToken ct) =>
         {
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
-            var rows = await reader.GetCollectionAsync(userId, ct);
-            return Results.Ok(rows.Select(r =>
-                new CardOwnershipResponse(r.CardReference, r.Quantity)));
+            var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
+            return Results.Ok(await reader.GetCollectionAsync(userId, query, loc, ct));
         }).RequireAuthorization(AuthConstants.ReadPolicy);
 
         group.MapPost("import", async (
@@ -34,6 +43,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromForm] bool termsAccepted,
             CurrentUserAccessor currentUser,
             CollectionImporter importer,
+            CardMetadataBackfiller backfiller,
             IOptions<EquinoxImportOptions> importOptions,
             CancellationToken ct) =>
         {
@@ -120,6 +130,11 @@ public static class CollectionEndpoints
                     $"Les uniques suivantes appartiennent déjà à un autre joueur : {refs}",
                     "text/plain", null, StatusCodes.Status409Conflict);
             }
+
+            // Import committed: backfill catalog metadata for any newly-owned references
+            // (best-effort, outside the event transaction).
+            await backfiller.BackfillAsync(userId, ct);
+
             return Results.NoContent();
         })
         .RequireAuthorization(AuthConstants.ImportPolicy);

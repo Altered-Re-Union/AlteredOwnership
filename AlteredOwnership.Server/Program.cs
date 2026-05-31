@@ -3,6 +3,7 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Endpoints;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Cards;
 using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
@@ -38,6 +39,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddScoped<CollectionReader>();
 builder.Services.AddScoped<CollectionImporter>();
+builder.Services.AddScoped<CardMetadataBackfiller>();
 builder.Services.AddScoped<EventAppender>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
@@ -52,6 +54,9 @@ builder.Services.AddOptions<EquinoxImportOptions>()
 
 var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.SectionName).Get<ExternalHostsOptions>()
     ?? throw new InvalidOperationException("Missing 'ExternalHosts' configuration section.");
+
+builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
+    http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 

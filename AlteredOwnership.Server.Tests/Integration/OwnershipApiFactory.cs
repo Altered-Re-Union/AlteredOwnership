@@ -1,4 +1,5 @@
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Cards;
 using AlteredOwnership.Server.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +52,11 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton<IDistributedCache>(new MemoryDistributedCache(
                 Options.Create(new MemoryDistributedCacheOptions())));
+
+            // No network by default: import-triggered card backfill gets a no-op catalog
+            // client. Tests that exercise backfill override this with their own stub.
+            services.RemoveAll<IAlteredCardsClient>();
+            services.AddSingleton<IAlteredCardsClient>(new NullCardsClient());
 
             // Bypass OIDC/Bearer: always authenticate as a fixed test user with both scopes.
             services.AddAuthentication(o =>
