@@ -24,7 +24,6 @@ window.AO_I18N = {
       "<p>Only alternative arts and uniques will be imported. Commons, rares and exalted cards will not be — simply because they will be accessible with no quantity limit on every account.</p>",
     "section.terms.title": "What are the terms?",
     "section.terms.body":
-      "<p>Re:Union has very limited legal resources and we don't want legal trouble, so we don't promise much.</p>" +
       "<p>Keep a few important points in mind:</p>" +
       "<ul>" +
       "<li>We don't grant you ownership of the cards the way Equinox did. It's just a list of cards playable in certain defined formats, which may evolve in the future — nothing more.</li>" +
@@ -74,7 +73,6 @@ window.AO_I18N = {
       "<p>Uniquement les arts alternatifs et les uniques seront importés. Les communes, les rares et les exaltées ne seront pas récupérées, pour la simple raison qu'elles seront accessibles sans limite de quantité sur tous les comptes.</p>",
     "section.terms.title": "Quelles sont les conditions ?",
     "section.terms.body":
-      "<p>Re:Union dispose de ressources juridiques très limitées et nous ne voulons pas avoir de problèmes juridiques, donc nous ne promettons pas grand-chose.</p>" +
       "<p>Gardez à l'esprit quelques points importants :</p>" +
       "<ul>" +
       "<li>On ne vous donne pas la propriété des cartes comme Equinox a pu le faire. C'est juste une liste de cartes jouables dans certains formats définis, qui peuvent évoluer dans le futur, rien de plus.</li>" +
@@ -124,7 +122,6 @@ window.AO_I18N = {
       "<p>Solo se importarán los artes alternativos y las únicas. Las comunes, las raras y las exaltadas no se recuperarán, sencillamente porque serán accesibles sin límite de cantidad en todas las cuentas.</p>",
     "section.terms.title": "¿Cuáles son las condiciones?",
     "section.terms.body":
-      "<p>Re:Union dispone de recursos jurídicos muy limitados y no queremos problemas legales, así que no prometemos gran cosa.</p>" +
       "<p>Ten en cuenta algunos puntos importantes:</p>" +
       "<ul>" +
       "<li>No te otorgamos la propiedad de las cartas como hacía Equinox. Es solo una lista de cartas jugables en ciertos formatos definidos, que pueden evolucionar en el futuro, nada más.</li>" +
@@ -174,7 +171,6 @@ window.AO_I18N = {
       "<p>Verranno importati solo gli art alternativi e le uniche. Le comuni, le rare e le esaltate non verranno recuperate, semplicemente perché saranno accessibili senza limite di quantità su tutti gli account.</p>",
     "section.terms.title": "Quali sono le condizioni?",
     "section.terms.body":
-      "<p>Re:Union dispone di risorse legali molto limitate e non vogliamo avere problemi legali, quindi non promettiamo granché.</p>" +
       "<p>Tenete a mente alcuni punti importanti:</p>" +
       "<ul>" +
       "<li>Non vi diamo la proprietà delle carte come faceva Equinox. È solo un elenco di carte giocabili in alcuni formati definiti, che possono evolvere in futuro, niente di più.</li>" +
@@ -224,7 +220,6 @@ window.AO_I18N = {
       "<p>Importiert werden ausschließlich Alternativ-Artworks und Uniques. Commons, Rares und Exalted-Karten werden nicht übernommen — schlicht weil sie ohne Mengenbegrenzung auf allen Konten verfügbar sein werden.</p>",
     "section.terms.title": "Welche Bedingungen gelten?",
     "section.terms.body":
-      "<p>Re:Union verfügt nur über sehr begrenzte juristische Mittel und wir möchten keine rechtlichen Probleme, deshalb versprechen wir nicht viel.</p>" +
       "<p>Behaltet ein paar wichtige Punkte im Hinterkopf:</p>" +
       "<ul>" +
       "<li>Wir geben euch nicht das Eigentum an den Karten, wie es Equinox getan hat. Es ist nur eine Liste spielbarer Karten in bestimmten definierten Formaten, die sich in Zukunft weiterentwickeln können — mehr nicht.</li>" +
