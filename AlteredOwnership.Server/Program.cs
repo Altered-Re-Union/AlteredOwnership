@@ -38,6 +38,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddScoped<CollectionReader>();
+builder.Services.AddScoped<OwnershipVerifier>();
 builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
 builder.Services.AddScoped<EventAppender>();

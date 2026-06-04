@@ -20,6 +20,12 @@ public record CardCollectionItemResponse(
     bool? IsBanned, bool? IsSuspended,
     int? MainCost, int? RecallCost, int? Forest, int? Mountain, int? Ocean);
 
+// One requested card and how many copies the caller needs.
+public record OwnershipCheckItem(string Reference, int Quantity);
+
+// A card the caller asked for but owns too few of (Owned < Requested).
+public record OwnershipShortfall(string Reference, int Requested, int Owned);
+
 public static class CollectionEndpoints
 {
     public static IEndpointRouteBuilder MapCollectionEndpoints(this IEndpointRouteBuilder routes)
@@ -37,6 +43,20 @@ public static class CollectionEndpoints
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             return Results.Ok(await reader.GetCollectionAsync(userId, query, loc, ct));
         }).RequireAuthorization(AuthConstants.ReadPolicy);
+
+        group.MapPost("verify-ownership", async (
+            List<OwnershipCheckItem> items,
+            CurrentUserAccessor currentUser,
+            OwnershipVerifier verifier,
+            CancellationToken ct) =>
+        {
+            var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            return Results.Ok(await verifier.VerifyAsync(userId, items, ct));
+        })
+        .RequireAuthorization(AuthConstants.ReadPolicy)
+        // Read-only check, no state change: exempt from the global CSRF gate so the SPA
+        // can call it without first fetching an antiforgery token.
+        .DisableAntiforgery();
 
         group.MapPost("import", async (
             IFormFile file,
