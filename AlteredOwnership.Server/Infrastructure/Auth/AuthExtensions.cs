@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -100,6 +101,12 @@ public static class AuthExtensions
 
                 o.TokenValidationParameters.NameClaimType = "pseudo";
                 o.TokenValidationParameters.RoleClaimType = "roles";
+
+                // Keycloak emits the account language as a `locale` claim (profile scope).
+                // It only reaches us through the userinfo endpoint, so map it explicitly
+                // onto the cookie identity — /me returns it and the SPA picks the UI
+                // language from it.
+                o.ClaimActions.MapUniqueJsonKey("locale", "locale");
 
                 // Keycloak puts `scope` only in the access_token, not the id_token.
                 // Project it onto the cookie identity so scope-based policies work.

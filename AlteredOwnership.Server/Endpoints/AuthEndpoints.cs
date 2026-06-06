@@ -10,7 +10,7 @@ namespace AlteredOwnership.Server.Endpoints;
 
 public static class AuthEndpoints
 {
-    public record MeResponse(string Sub, string? Pseudo, string? Email);
+    public record MeResponse(string Sub, string? Pseudo, string? Email, string? Locale);
 
     public record CsrfResponse(string Token);
 
@@ -77,7 +77,8 @@ public static class AuthEndpoints
             var pseudo = user.FindFirstValue("pseudo")
                 ?? user.Identity.Name;
             var email = user.FindFirstValue("email");
-            return Results.Ok(new MeResponse(sub, pseudo, email));
+            var locale = user.FindFirstValue("locale");
+            return Results.Ok(new MeResponse(sub, pseudo, email, locale));
         }).RequireAuthorization(p => p
             .AddAuthenticationSchemes(AuthConstants.CookieScheme)
             .RequireAuthenticatedUser());

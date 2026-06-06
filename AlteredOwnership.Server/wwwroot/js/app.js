@@ -1,7 +1,6 @@
 (() => {
     const html = document.documentElement;
-    const LANG_KEY = 'ar_lang';
-    const LANG_FLAGS = { en: '🇬🇧', fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', de: '🇩🇪' };
+    const SUPPORTED_LANGS = ['en', 'fr'];
     const DEFAULT_LANG = 'en';
 
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
@@ -31,29 +30,21 @@
         });
     };
 
-    // Language
+    // Language is driven by the Keycloak `locale` claim; there is no on-site override.
     const applyLang = (lang) => {
-        currentLang = LANG_FLAGS[lang] ? lang : DEFAULT_LANG;
+        currentLang = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
         html.lang = currentLang;
-        const flag = document.querySelector('[data-lang-current]');
-        if (flag) flag.textContent = LANG_FLAGS[currentLang];
-        document.querySelectorAll('[data-lang]').forEach((a) => {
-            a.classList.toggle('active', a.dataset.lang === currentLang);
-        });
         applyI18n();
-        // Auth control is built in JS, so it needs to be re-rendered after language switch.
+        // Auth control is built in JS, so it needs to be re-rendered after a language change.
         if (currentAuth === 'anonymous') renderLogin();
         else if (currentAuth) renderUser(currentAuth);
     };
-    document.querySelectorAll('[data-lang]').forEach((a) => {
-        a.addEventListener('click', (e) => {
-            e.preventDefault();
-            const lang = a.dataset.lang;
-            if (!LANG_FLAGS[lang]) return;
-            localStorage.setItem(LANG_KEY, lang);
-            applyLang(lang);
-        });
-    });
+    // Maps a raw locale (e.g. "fr", "fr-FR", "de_DE") to a supported UI language, or null.
+    const normalizeLang = (raw) => {
+        if (!raw) return null;
+        const base = String(raw).toLowerCase().split(/[-_]/)[0];
+        return SUPPORTED_LANGS.includes(base) ? base : null;
+    };
 
     // Auth
     const authControl = document.getElementById('ao-auth-control');
@@ -92,8 +83,8 @@
                 '</button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                     (email ? '<li><span class="dropdown-item-text small text-muted">' + escapeHtml(email) + '</span></li>' : '') +
-                    '<li><a class="dropdown-item" href="' + (window.AppConfig && window.AppConfig.reunionWebBase || '') + '/pages/account">' +
-                        '<i class="fa-solid fa-user me-1"></i>' + escapeHtml(t('auth.account')) +
+                    '<li><a class="dropdown-item" href="' + (window.AppConfig && window.AppConfig.authBase || '') + '/realms/players/account/">' +
+                        '<i class="fa-solid fa-id-card me-1"></i>' + escapeHtml(t('auth.editProfile')) +
                     '</a></li>' +
                     '<li><hr class="dropdown-divider"></li>' +
                     '<li>' +
@@ -121,8 +112,9 @@
         window.location.replace('/api/auth/login?silent=true&returnUrl=' + encodeURIComponent(returnUrl));
     };
 
-    // Apply language now that renderLogin/renderUser exist (re-render hook needs them).
-    applyLang(localStorage.getItem(LANG_KEY) || DEFAULT_LANG);
+    // Render in English until /me resolves the Keycloak locale (renderLogin/renderUser
+    // must exist first — the re-render hook needs them).
+    applyLang(DEFAULT_LANG);
 
     (async () => {
         try {
@@ -131,6 +123,8 @@
             const me = await res.json();
             // Token is session-bound, so fetch it before rendering anything that uses it.
             await fetchCsrfToken();
+            // Language comes from the Keycloak account locale; fall back to English.
+            applyLang(normalizeLang(me.locale) || DEFAULT_LANG);
             renderUser(me);
         } catch {
             renderLogin();

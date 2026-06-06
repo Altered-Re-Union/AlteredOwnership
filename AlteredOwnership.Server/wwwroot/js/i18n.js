@@ -4,7 +4,7 @@ window.AO_I18N = {
   en: {
     "nav.back": "Back to altered.re",
     "auth.login": "Login",
-    "auth.account": "My account",
+    "auth.editProfile": "Edit my profile",
     "auth.logout": "Logout",
     "main.title": "Collection importer",
     "section.why.title": "What for?",
@@ -53,7 +53,7 @@ window.AO_I18N = {
   fr: {
     "nav.back": "Retour sur altered.re",
     "auth.login": "Connexion",
-    "auth.account": "Mon compte",
+    "auth.editProfile": "Modifier mon profil",
     "auth.logout": "Déconnexion",
     "main.title": "Importer ma collection",
     "section.why.title": "Pour quoi faire ?",
