@@ -12,16 +12,22 @@ public static class EquinoxImportEvent
     public const EventKind Kind = EventKind.EquinoxImport;
     public const int CurrentVersion = 1;
 
+    // Version of the published collection terms (the EULA PDF) in force. Bumped when that
+    // document changes, so every import records which terms version the user validated.
+    // Events predating this field deserialize to 0 ("accepted before terms were versioned").
+    public const int CurrentTermsVersion = 1;
+
     public record PayloadV1(
         int Version,
         IReadOnlyList<PayloadV1.Item> Cards)
     {
         public bool TermsAccepted { get; init; }
+        public int TermsVersion { get; init; }
         public record Item(string Reference, int Quantity);
     }
 
     public static PayloadV1 Build(bool termsAccepted, IReadOnlyList<PayloadV1.Item> cards)
-        => new(CurrentVersion, cards) { TermsAccepted = termsAccepted };
+        => new(CurrentVersion, cards) { TermsAccepted = termsAccepted, TermsVersion = CurrentTermsVersion };
 
     // Deterministic fingerprint of an Equinox export, used to reject re-imports of
     // the same collection globally. The export timestamp is intentionally excluded:

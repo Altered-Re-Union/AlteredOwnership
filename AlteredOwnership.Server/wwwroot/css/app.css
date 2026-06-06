@@ -101,14 +101,3 @@ a:hover {
 #ao-main {
     max-width: 960px;
 }
-
-.ao-test-banner {
-    background-color: #d32f2f;
-    color: #fff;
-    text-align: center;
-    font-weight: 700;
-    font-size: 1.25rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    padding: 1rem;
-}
