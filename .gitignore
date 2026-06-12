@@ -380,3 +380,9 @@ test:.cs
 *.tempLog.xml
 *.testResults.xml
 *.testStats.csv
+
+# Secrets / local environment (never commit the real Equinox key or Keycloak secret)
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
