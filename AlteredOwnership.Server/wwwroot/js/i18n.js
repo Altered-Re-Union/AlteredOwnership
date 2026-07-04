@@ -14,11 +14,7 @@ window.AO_I18N = {
       "<p>Whatever the reason, the tool is here for you to recover what you had.</p>",
     "section.export.title": "How do I export my current collection?",
     "section.export.body":
-      "<p>Under GDPR, you can request access to your personal data from Equinox. There are two options:</p>" +
-      "<ul>" +
-      '<li>The easiest: while the digital services are still online (until mid-June or so), go to <a href="https://www.altered.gg/en-us/manage-account/personal-data" target="_blank" rel="noopener">this page</a>, submit the request and download the zip.</li>' +
-      '<li>After that date, you can still make the request by emailing <a href="mailto:rgpd@equinox.com">rgpd@equinox.com</a>, but with a significantly longer processing time.</li>' +
-      "</ul>",
+      '<p>Under GDPR, you can request access to your personal data from Equinox. You need to make the request by emailing <a href="mailto:support@altered.gg">support@altered.gg</a>, but with a significantly longer processing time.</li>',
     "section.whatImported.title": "What will be imported?",
     "section.whatImported.body":
       "<p>Only alternative arts and uniques will be imported. Commons, rares and exalted cards will not be. Simply because they will be accessible with no quantity limit on every account.</p>",
@@ -63,11 +59,7 @@ window.AO_I18N = {
       "<p>Quelle que soit la raison, vous avez à votre disposition l'outil pour récupérer ce que vous aviez.</p>",
     "section.export.title": "Comment exporter ma collection actuelle ?",
     "section.export.body":
-      "<p>Dans le cadre du RGPD, vous pouvez demander l'accès à vos données personnelles à Equinox. Pour ce faire, il existe deux options :</p>" +
-      "<ul>" +
-      '<li>La plus simple : tant que les services digitaux sont encore disponibles (jusqu\'à mi-juin environ), allez sur <a href="https://www.altered.gg/en-us/manage-account/personal-data" target="_blank" rel="noopener">cette page</a>, faites la demande et récupérez le zip.</li>' +
-      '<li>Après cette date, il sera toujours possible d\'en faire la demande en envoyant un mail à <a href="mailto:rgpd@equinox.com">rgpd@equinox.com</a>, mais avec un délai de traitement significativement plus long.</li>' +
-      "</ul>",
+      '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.fr">rgpd@equinox.com</a> :</p>',
     "section.whatImported.title": "Qu'est-ce qui sera importé ?",
     "section.whatImported.body":
       "<p>Uniquement les arts alternatifs et les uniques seront importés. Les communes, les rares et les exaltées ne seront pas récupérées, pour la simple raison qu'elles seront accessibles sans limite de quantité sur tous les comptes.</p>",
