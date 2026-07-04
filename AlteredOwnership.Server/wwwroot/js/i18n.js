@@ -59,7 +59,7 @@ window.AO_I18N = {
       "<p>Quelle que soit la raison, vous avez à votre disposition l'outil pour récupérer ce que vous aviez.</p>",
     "section.export.title": "Comment exporter ma collection actuelle ?",
     "section.export.body":
-      '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.fr">rgpd@equinox.com</a> :</p>',
+      '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.fr">support@altered.fr</a> :</p>',
     "section.whatImported.title": "Qu'est-ce qui sera importé ?",
     "section.whatImported.body":
       "<p>Uniquement les arts alternatifs et les uniques seront importés. Les communes, les rares et les exaltées ne seront pas récupérées, pour la simple raison qu'elles seront accessibles sans limite de quantité sur tous les comptes.</p>",
