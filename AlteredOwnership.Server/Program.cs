@@ -61,6 +61,11 @@ builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
     http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
 builder.Services.AddHostedService<CardCatalogRefreshService>();
 
+builder.Services.AddOptions<KeycloakAdminOptions>()
+    .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName));
+builder.Services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>(
+    http => http.BaseAddress = new Uri(externalHosts.AuthBase));
+
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 
 // Behind Traefik over plain HTTP: trust X-Forwarded-Proto/-For so OIDC redirect_uri,
