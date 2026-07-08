@@ -53,6 +53,7 @@
     const SILENT_LOGIN_KEY = 'ao_silent_login_tried';
     // null = unknown yet, 'anonymous' = login button, object = signed-in user.
     let currentAuth = null;
+    const currentReturnUrl = () => window.location.pathname + window.location.search;
     // Antiforgery request token for the current session, fetched once we're signed in.
     let csrfToken = null;
     const fetchCsrfToken = async () => {
@@ -63,10 +64,15 @@
     };
     const renderLogin = () => {
         currentAuth = 'anonymous';
-        if (importAnonBlock) importAnonBlock.hidden = false;
+        const loginHref = '/api/auth/login?returnUrl=' + encodeURIComponent(currentReturnUrl());
+        if (importAnonBlock) {
+            importAnonBlock.hidden = false;
+            const importLoginLink = importAnonBlock.querySelector('a');
+            if (importLoginLink) importLoginLink.href = loginHref;
+        }
         if (importAuthBlock) importAuthBlock.hidden = true;
         authControl.innerHTML =
-            '<a href="/api/auth/login?returnUrl=/" class="btn btn-sm btn-primary">' +
+            '<a href="' + loginHref + '" class="btn btn-sm btn-primary">' +
             '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(t('auth.login')) + '</span></a>';
     };
     const renderUser = (me) => {
@@ -108,8 +114,7 @@
             return;
         }
         sessionStorage.setItem(SILENT_LOGIN_KEY, '1');
-        const returnUrl = window.location.pathname + window.location.search;
-        window.location.replace('/api/auth/login?silent=true&returnUrl=' + encodeURIComponent(returnUrl));
+        window.location.replace('/api/auth/login?silent=true&returnUrl=' + encodeURIComponent(currentReturnUrl()));
     };
 
     // Render in English until /me resolves the Keycloak locale (renderLogin/renderUser
