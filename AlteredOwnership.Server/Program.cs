@@ -41,6 +41,7 @@ builder.Services.AddScoped<CollectionReader>();
 builder.Services.AddScoped<OwnershipVerifier>();
 builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
+builder.Services.AddScoped<RewardService>();
 builder.Services.AddScoped<EventAppender>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()

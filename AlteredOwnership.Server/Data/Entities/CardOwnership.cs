@@ -9,4 +9,6 @@ public class CardOwnership
     public int Quantity { get; set; }
 
     public bool IsUnique { get; set; }
+    
+    public string? AcquiredFrom { get; set; }
 }

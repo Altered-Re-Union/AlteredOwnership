@@ -20,6 +20,10 @@ public static class EventReplay
             case EventKind.EquinoxImport:
                 EquinoxImportEvent.Apply(state, evt.Payload);
                 break;
+            
+            case EventKind.RewardEvent:
+                RewardEvent.Apply(state, evt.Payload);
+                break;
 
             default:
                 throw new NotSupportedException($"Unknown event kind {evt.Kind}");
