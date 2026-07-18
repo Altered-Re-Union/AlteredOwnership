@@ -41,6 +41,7 @@ builder.Services.AddScoped<CollectionReader>();
 builder.Services.AddScoped<OwnershipVerifier>();
 builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
+builder.Services.AddScoped<RewardService>();
 builder.Services.AddScoped<EventAppender>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
@@ -59,6 +60,11 @@ var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.Sectio
 builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
     http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
 builder.Services.AddHostedService<CardCatalogRefreshService>();
+
+builder.Services.AddOptions<KeycloakAdminOptions>()
+    .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName));
+builder.Services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>(
+    http => http.BaseAddress = new Uri(externalHosts.AuthBase));
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 
