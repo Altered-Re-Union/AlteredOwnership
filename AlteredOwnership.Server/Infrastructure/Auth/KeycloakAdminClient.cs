@@ -8,6 +8,9 @@ namespace AlteredOwnership.Server.Infrastructure.Auth;
 public interface IKeycloakAdminClient
 {
     Task<IReadOnlyList<KeycloakUserDto>> SearchByPseudoAsync(string pseudo, CancellationToken ct);
+    Task<IReadOnlyList<KeycloakUserDto>> SearchByEmailAsync(string email, CancellationToken ct);
+    Task<IReadOnlyList<KeycloakUserDto>> SearchAsync(string term, CancellationToken ct);
+    Task<KeycloakUserDto?> GetByIdAsync(string keycloakId, CancellationToken ct);
 }
 
 // Talks to Keycloak's Admin REST API using the players-readonly-svc service account
@@ -39,6 +42,52 @@ public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminO
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<List<KeycloakUserDto>>(ct) ?? [];
+    }
+
+    // Keycloak's "email" query param does an infix match unless exact=true is set.
+    public async Task<IReadOnlyList<KeycloakUserDto>> SearchByEmailAsync(string email, CancellationToken ct)
+    {
+        var token = await GetAccessTokenAsync(ct);
+
+        var query = Uri.EscapeDataString(email);
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"admin/realms/{_options.Realm}/users?email={query}&exact=false");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<List<KeycloakUserDto>>(ct) ?? [];
+    }
+
+    // "pseudo" is a custom attribute Keycloak's built-in username/email/name search
+    // doesn't cover, so admin lookup by email or pseudo has to combine two separate
+    // queries rather than a single built-in "search" param.
+    public async Task<IReadOnlyList<KeycloakUserDto>> SearchAsync(string term, CancellationToken ct)
+    {
+        var byPseudo = SearchByPseudoAsync(term, ct);
+        var byEmail = SearchByEmailAsync(term, ct);
+        await Task.WhenAll(byPseudo, byEmail);
+
+        return byPseudo.Result
+            .Concat(byEmail.Result)
+            .DistinctBy(u => u.Id)
+            .ToList();
+    }
+
+    public async Task<KeycloakUserDto?> GetByIdAsync(string keycloakId, CancellationToken ct)
+    {
+        var token = await GetAccessTokenAsync(ct);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"admin/realms/{_options.Realm}/users/{Uri.EscapeDataString(keycloakId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(request, ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<KeycloakUserDto>(ct);
     }
 
     private async Task<string> GetAccessTokenAsync(CancellationToken ct)

@@ -8,6 +8,7 @@ public static class AuthConstants
 
     public const string ImportPolicy = "ImportCollection";
     public const string ReadPolicy = "ReadCollection";
+    public const string AdminPolicy = "Admin";
 
     // Any authenticated cookie session, no scope required (me, logout, csrf).
     public const string SessionPolicy = "Session";

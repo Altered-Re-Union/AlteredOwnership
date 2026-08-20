@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,8 +32,32 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
     {
         await _postgres.StartAsync();
         using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<OwnershipDbContext>()
-            .Database.MigrateAsync();
+        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+
+        // SeedUniqueCardStock bulk-loads ~5.4M frozen production rows via raw SQL and
+        // takes minutes to apply — tests seed their own small UniqueCardStock fixtures
+        // instead and don't need the real data, so mark it "already applied" before
+        // migrating rather than actually running it. Every other (schema) migration
+        // still applies normally, including any added after this one.
+        var migrationIds = db.Database.GetMigrations().OrderBy(id => id, StringComparer.Ordinal).ToList();
+        var seedMigrationId = migrationIds.Single(id => id.EndsWith("_SeedUniqueCardStock", StringComparison.Ordinal));
+        var seedIndex = migrationIds.IndexOf(seedMigrationId);
+        var beforeSeedMigrationId = seedIndex > 0 ? migrationIds[seedIndex - 1] : "0";
+
+        // IMigrator is an EF-internal service resolved from the DbContext's own service
+        // provider, not the app's DI container.
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync(beforeSeedMigrationId);
+
+        // Scalar SqlQueryRaw<T> expects the result column aliased "Value".
+        var productVersion = await db.Database
+            .SqlQueryRaw<string>(
+                "SELECT \"ProductVersion\" AS \"Value\" FROM \"__EFMigrationsHistory\" ORDER BY \"MigrationId\" DESC LIMIT 1")
+            .FirstAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({seedMigrationId}, {productVersion})");
+
+        await db.Database.MigrateAsync();
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -58,6 +84,11 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
             services.RemoveAll<IAlteredCardsClient>();
             services.AddSingleton<IAlteredCardsClient>(new NullCardsClient());
 
+            // No network by default: the real client hits a live preprod Keycloak host.
+            // Tests that need known Keycloak users override this with a configured stub.
+            services.RemoveAll<IKeycloakAdminClient>();
+            services.AddSingleton<IKeycloakAdminClient>(new StubKeycloakAdminClient());
+
             // Bypass OIDC/Bearer: always authenticate as a fixed test user with both scopes.
             services.AddAuthentication(o =>
             {
@@ -78,6 +109,10 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
                 opt.AddPolicy(AuthConstants.SessionPolicy, p => p
                     .AddAuthenticationSchemes(TestAuthHandler.SchemeName)
                     .RequireAuthenticatedUser());
+                opt.AddPolicy(AuthConstants.AdminPolicy, p => p
+                    .AddAuthenticationSchemes(TestAuthHandler.SchemeName)
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new AdminRequirement()));
             });
         });
     }

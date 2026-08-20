@@ -184,6 +184,13 @@ public static class AuthExtensions
             opt.AddPolicy(AuthConstants.SessionPolicy, p => p
                 .AddAuthenticationSchemes(AuthConstants.CookieScheme)
                 .RequireAuthenticatedUser());
+
+            // SPA-only via cookie; requires the caller's local Users.Role to be Admin
+            // (checked by AdminAuthorizationHandler, since the role isn't a claim).
+            opt.AddPolicy(AuthConstants.AdminPolicy, p => p
+                .AddAuthenticationSchemes(AuthConstants.CookieScheme)
+                .RequireAuthenticatedUser()
+                .AddRequirements(new AdminRequirement()));
         });
 
         return services;

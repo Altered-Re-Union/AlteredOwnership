@@ -8,6 +8,7 @@ using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +44,9 @@ builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
 builder.Services.AddScoped<RewardService>();
 builder.Services.AddScoped<EventAppender>();
+builder.Services.AddScoped<UserProvisioningService>();
+builder.Services.AddScoped<UniqueStockService>();
+builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
     .Bind(builder.Configuration.GetSection(ExternalHostsOptions.SectionName));
@@ -161,6 +165,7 @@ app.UseOutputCache();
 
 app.MapAuthEndpoints();
 app.MapCollectionEndpoints();
+app.MapAdminEndpoints();
 app.MapDefaultEndpoints();
 
 // Surfaces a subset of ExternalHosts to the SPA so wwwroot/* stays env-agnostic.
