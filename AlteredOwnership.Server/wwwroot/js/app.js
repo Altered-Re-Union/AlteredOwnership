@@ -92,6 +92,11 @@
                     '<li><a class="dropdown-item" href="' + (window.AppConfig && window.AppConfig.authBase || '') + '/realms/players/account/">' +
                         '<i class="fa-solid fa-id-card me-1"></i>' + escapeHtml(t('auth.editProfile')) +
                     '</a></li>' +
+                    (me.isAdmin
+                        ? '<li><a class="dropdown-item" href="/admin/">' +
+                            '<i class="fa-solid fa-user-shield me-1"></i>' + escapeHtml(t('auth.admin')) +
+                        '</a></li>'
+                        : '') +
                     '<li><hr class="dropdown-divider"></li>' +
                     '<li>' +
                         '<form method="POST" action="/api/auth/logout" style="margin:0">' +

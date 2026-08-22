@@ -1,16 +1,19 @@
 using System.Security.Claims;
+using AlteredOwnership.Server.Data;
+using AlteredOwnership.Server.Data.Entities;
 using AlteredOwnership.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace AlteredOwnership.Server.Endpoints;
 
 public static class AuthEndpoints
 {
-    public record MeResponse(string Sub, string? Pseudo, string? Email, string? Locale);
+    public record MeResponse(string Sub, string? Pseudo, string? Email, string? Locale, bool IsAdmin);
 
     public record CsrfResponse(string Token);
 
@@ -65,7 +68,7 @@ public static class AuthEndpoints
         }).RequireAuthorization(AuthConstants.SessionPolicy);
 
         // Returns the current user's identity, or 401 if not authenticated.
-        group.MapGet("me", (HttpContext ctx) =>
+        group.MapGet("me", async (HttpContext ctx, OwnershipDbContext db, CancellationToken ct) =>
         {
             var user = ctx.User;
             if (user.Identity?.IsAuthenticated != true)
@@ -78,7 +81,15 @@ public static class AuthEndpoints
                 ?? user.Identity.Name;
             var email = user.FindFirstValue("email");
             var locale = user.FindFirstValue("locale");
-            return Results.Ok(new MeResponse(sub, pseudo, email, locale));
+
+            // No local Users row yet (never hit an endpoint that provisions one) means
+            // not an admin — role promotion always creates the row first.
+            var role = await db.Users
+                .Where(u => u.KeycloakId == sub)
+                .Select(u => (UserRole?)u.Role)
+                .FirstOrDefaultAsync(ct);
+
+            return Results.Ok(new MeResponse(sub, pseudo, email, locale, role == UserRole.Admin));
         }).RequireAuthorization(p => p
             .AddAuthenticationSchemes(AuthConstants.CookieScheme)
             .RequireAuthenticatedUser());

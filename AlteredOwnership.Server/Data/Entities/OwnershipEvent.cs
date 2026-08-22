@@ -5,6 +5,7 @@ namespace AlteredOwnership.Server.Data.Entities;
 public enum EventKind
 {
     EquinoxImport = 1,
+    RewardEvent = 2,
 }
 
 public class OwnershipEvent

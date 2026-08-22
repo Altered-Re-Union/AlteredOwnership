@@ -68,13 +68,8 @@ public class CollectionReader(OwnershipDbContext db)
         return items.ToList();
     }
 
-    // Picks the requested locale, falling back to English.
-    private static string? Localize(Dictionary<string, string>? text, string locale)
-    {
-        if (text is null || text.Count == 0)
-            return null;
-        return text.TryGetValue(locale, out var value) ? value : text.GetValueOrDefault("en");
-    }
+    private static string? Localize(Dictionary<string, string>? text, string locale) =>
+        CardLocalization.Localize(text, locale);
 
     // Returns the catalog filtered by the query's card clauses, or null when no card filter
     // is set. Every clause is on a plain Card column, so the whole thing translates to SQL.

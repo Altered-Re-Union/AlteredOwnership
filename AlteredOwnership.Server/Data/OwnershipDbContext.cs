@@ -12,6 +12,7 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
     public DbSet<OwnershipEvent> OwnershipEvents => Set<OwnershipEvent>();
     public DbSet<CardOwnership> CardOwnerships => Set<CardOwnership>();
     public DbSet<Card> Cards => Set<Card>();
+    public DbSet<UniqueCardStock> UniqueCardStock => Set<UniqueCardStock>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -20,6 +21,7 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.HasKey(x => x.Id);
             e.Property(x => x.KeycloakId).IsRequired();
             e.HasIndex(x => x.KeycloakId).IsUnique();
+            e.Property(x => x.Role).HasConversion<string>().HasDefaultValue(UserRole.Player);
         });
 
         b.Entity<OwnershipEvent>(e =>
@@ -62,6 +64,14 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             // depending on the Npgsql dynamic-JSON data-source feature.
             e.Property(x => x.Name).HasColumnType("jsonb").HasConversion(LocalizedTextConverter, LocalizedTextComparer);
             e.Property(x => x.ImagePath).HasColumnType("jsonb").HasConversion(LocalizedTextConverter, LocalizedTextComparer);
+        });
+
+        b.Entity<UniqueCardStock>(e =>
+        {
+            e.HasKey(x => x.CardReference);
+            e.Property(x => x.Set).IsRequired();
+            e.Property(x => x.Faction).IsRequired();
+            e.HasIndex(x => new { x.Set, x.IsDistributed });
         });
     }
 

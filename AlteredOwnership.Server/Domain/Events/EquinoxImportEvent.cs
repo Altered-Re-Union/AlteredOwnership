@@ -65,4 +65,28 @@ public static class EquinoxImportEvent
             state[item.Reference] = state.GetValueOrDefault(item.Reference) + item.Quantity;
         }
     }
+
+    // For the history page: what this one import's payload contributed, filtered to
+    // the same alt-art/unique subset Apply folds into the projection (a raw Equinox
+    // export lists commons/rares too, which the app never tracks).
+    public static EventDescription Describe(JsonDocument payloadJson)
+    {
+        var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
+        return version switch
+        {
+            1 => DescribeV1(payloadJson.Deserialize<PayloadV1>()
+                ?? throw new InvalidOperationException("Cannot deserialize EquinoxImport V1 payload")),
+            _ => throw new NotSupportedException($"EquinoxImport payload version {version} is not supported"),
+        };
+    }
+
+    private static EventDescription DescribeV1(PayloadV1 payload)
+    {
+        var items = payload.Cards
+            .Where(c => c.Quantity > 0
+                && (CardReferenceParser.IsAlternateArt(c.Reference) || CardReferenceParser.IsUnique(c.Reference)))
+            .Select(c => new EventItemDelta(c.Reference, c.Quantity))
+            .ToList();
+        return new EventDescription("Import de collection", items);
+    }
 }

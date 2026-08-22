@@ -8,6 +8,7 @@ using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 using AlteredOwnership.Server.Infrastructure.Hosting;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,11 @@ builder.AddNpgsqlDbContext<OwnershipDbContext>("ownershipdb");
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
+
+// UserRole (SetUserRoleRequest.Role in the admin promote/demote endpoint) is read
+// from/written to JSON as its name ("Admin"/"Player"), not its numeric value.
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
 builder.Services.AddAntiforgery(o =>
 {
@@ -41,7 +47,12 @@ builder.Services.AddScoped<CollectionReader>();
 builder.Services.AddScoped<OwnershipVerifier>();
 builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
+builder.Services.AddScoped<RewardService>();
 builder.Services.AddScoped<EventAppender>();
+builder.Services.AddScoped<UserProvisioningService>();
+builder.Services.AddScoped<UniqueStockService>();
+builder.Services.AddScoped<EventHistoryReader>();
+builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
     .Bind(builder.Configuration.GetSection(ExternalHostsOptions.SectionName));
@@ -59,6 +70,11 @@ var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.Sectio
 builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
     http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
 builder.Services.AddHostedService<CardCatalogRefreshService>();
+
+builder.Services.AddOptions<KeycloakAdminOptions>()
+    .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName));
+builder.Services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>(
+    http => http.BaseAddress = new Uri(externalHosts.AuthBase));
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 
@@ -88,7 +104,9 @@ app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "img-src 'self' data:; " +
+        // Card artwork (Name/ImagePath from the cards.alteredcore.org catalog, shown
+        // in the history page's event previews) is served from Altered's S3 bucket.
+        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com; " +
         "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "script-src 'self'; " +
@@ -155,6 +173,8 @@ app.UseOutputCache();
 
 app.MapAuthEndpoints();
 app.MapCollectionEndpoints();
+app.MapAdminEndpoints();
+app.MapHistoryEndpoints();
 app.MapDefaultEndpoints();
 
 // Surfaces a subset of ExternalHosts to the SPA so wwwroot/* stays env-agnostic.

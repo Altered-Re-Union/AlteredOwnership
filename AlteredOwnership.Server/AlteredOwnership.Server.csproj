@@ -27,4 +27,12 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
     <PackageReference Include="Sodium.Core" Version="1.3.5" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Frozen, one-time seed for UniqueCardStock (uniques never change once printed) —
+         applied by the SeedUniqueCardStock migration. Embedded so it ships inside the
+         migrations bundle with no extra deploy step. -->
+    <EmbeddedResource Include="Data/Seed/UniqueCardStock.seed.csv.gz"
+                       LogicalName="AlteredOwnership.Server.Data.Seed.UniqueCardStock.seed.csv.gz" />
+  </ItemGroup>
 </Project>
