@@ -25,6 +25,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 
+// UserRole (SetUserRoleRequest.Role in the admin promote/demote endpoint) is read
+// from/written to JSON as its name ("Admin"/"Player"), not its numeric value.
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
 builder.Services.AddAntiforgery(o =>
 {
     o.HeaderName = AuthConstants.CsrfHeaderName;
@@ -46,6 +51,7 @@ builder.Services.AddScoped<RewardService>();
 builder.Services.AddScoped<EventAppender>();
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<UniqueStockService>();
+builder.Services.AddScoped<EventHistoryReader>();
 builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
@@ -98,7 +104,9 @@ app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "img-src 'self' data:; " +
+        // Card artwork (Name/ImagePath from the cards.alteredcore.org catalog, shown
+        // in the history page's event previews) is served from Altered's S3 bucket.
+        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com; " +
         "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "script-src 'self'; " +
@@ -166,6 +174,7 @@ app.UseOutputCache();
 app.MapAuthEndpoints();
 app.MapCollectionEndpoints();
 app.MapAdminEndpoints();
+app.MapHistoryEndpoints();
 app.MapDefaultEndpoints();
 
 // Surfaces a subset of ExternalHosts to the SPA so wwwroot/* stays env-agnostic.

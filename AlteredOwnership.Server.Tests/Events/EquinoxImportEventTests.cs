@@ -101,4 +101,38 @@ public class EquinoxImportEventTests
 
         Assert.NotEqual(EquinoxImportEvent.ComputeHash(a), EquinoxImportEvent.ComputeHash(b));
     }
+
+    private static EventDescription Describe(EquinoxImportEvent.PayloadV1 payload) =>
+        EquinoxImportEvent.Describe(JsonSerializer.SerializeToDocument(payload));
+
+    [Fact]
+    public void Describe_matches_apply_filtering()
+    {
+        var payload = Payload(
+            ("ALT_ALIZE_A_AX_35_C", 3),
+            ("ALT_ALIZE_B_AX_32_U_4624", 1),
+            ("ALT_ALIZE_B_AX_32_C", 6),
+            ("ALT_ALIZE_A_AX_36_C", -1));
+
+        var description = Describe(payload);
+
+        Assert.Equal(2, description.Items.Count);
+        Assert.Contains(description.Items, i => i is { Reference: "ALT_ALIZE_A_AX_35_C", Quantity: 3 });
+        Assert.Contains(description.Items, i => i is { Reference: "ALT_ALIZE_B_AX_32_U_4624", Quantity: 1 });
+    }
+
+    [Fact]
+    public void Describe_preserves_payload_order_for_preview()
+    {
+        var payload = Payload(
+            ("ALT_ALIZE_A_AX_35_C", 1),
+            ("ALT_ALIZE_A_AX_36_C", 1),
+            ("ALT_ALIZE_A_AX_37_C", 1));
+
+        var description = Describe(payload);
+
+        Assert.Equal(
+            ["ALT_ALIZE_A_AX_35_C", "ALT_ALIZE_A_AX_36_C", "ALT_ALIZE_A_AX_37_C"],
+            description.Items.Select(i => i.Reference));
+    }
 }

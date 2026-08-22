@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,5 +56,25 @@ public class AdminAuthorizationTests(OwnershipApiFactory factory) : IClassFixtur
         using var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    private record MeResponse(string Sub, string? Pseudo, string? Email, string? Locale, bool IsAdmin);
+
+    [Fact]
+    public async Task Me_reports_is_admin_correctly()
+    {
+        const string admin = "me-is-admin-user";
+        const string nonAdmin = "me-is-not-admin-user";
+        await SeedAdminAsync(admin);
+
+        using var adminReq = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        adminReq.Headers.Add(TestAuthHandler.UserHeader, admin);
+        var adminMe = await (await _client.SendAsync(adminReq)).Content.ReadFromJsonAsync<MeResponse>();
+        Assert.True(adminMe!.IsAdmin);
+
+        using var nonAdminReq = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        nonAdminReq.Headers.Add(TestAuthHandler.UserHeader, nonAdmin);
+        var nonAdminMe = await (await _client.SendAsync(nonAdminReq)).Content.ReadFromJsonAsync<MeResponse>();
+        Assert.False(nonAdminMe!.IsAdmin);
     }
 }

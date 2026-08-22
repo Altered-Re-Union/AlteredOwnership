@@ -42,6 +42,22 @@ public static class RewardEvent
         state[payload.CardReference] = state.GetValueOrDefault(payload.CardReference) + payload.Quantity;
     }
 
+    // For the history page: the event's name is the free-text AcquiredFrom the admin
+    // entered (e.g. an event name), not a fixed label.
+    public static EventDescription Describe(JsonDocument payloadJson)
+    {
+        var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
+        return version switch
+        {
+            1 => DescribeV1(payloadJson.Deserialize<PayloadV1>()
+                ?? throw new InvalidOperationException("Cannot deserialize RewardEvent payload.")),
+            _ => throw new NotSupportedException($"RewardEvent payload version {version} is not supported"),
+        };
+    }
+
+    private static EventDescription DescribeV1(PayloadV1 payload) =>
+        new(payload.AcquiredFrom, [new EventItemDelta(payload.CardReference, payload.Quantity)]);
+
     // public static string ComputeHash(PayloadV1 payload)
     // {
     //     var canonical = string.Join("|", payload);

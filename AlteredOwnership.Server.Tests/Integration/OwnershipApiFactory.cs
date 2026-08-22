@@ -97,6 +97,18 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
             })
             .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
 
+            // A few endpoints (e.g. /api/auth/me, /api/auth/logout) pin
+            // AddAuthenticationSchemes(AuthConstants.CookieScheme) inline rather than
+            // through a named policy, so PostConfigure<AuthorizationOptions> below can't
+            // repoint them. AddOwnershipAuth already registered a real "Cookie" scheme
+            // (CookieAuthenticationHandler) — can't add a second scheme with that name —
+            // so swap that scheme's handler type in place instead.
+            services.PostConfigure<AuthenticationOptions>(o =>
+            {
+                if (o.SchemeMap.TryGetValue(AuthConstants.CookieScheme, out var scheme))
+                    scheme.HandlerType = typeof(TestAuthHandler);
+            });
+
             // Production policies pin to CookieScheme/BearerScheme; repoint them to the test scheme.
             services.PostConfigure<AuthorizationOptions>(opt =>
             {

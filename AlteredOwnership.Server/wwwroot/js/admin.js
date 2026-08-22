@@ -33,6 +33,10 @@
                     '<i class="fa-solid fa-user me-1"></i><span>' + escapeHtml(name) + '</span>' +
                 '</button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
+                    '<li><a class="dropdown-item" href="/">' +
+                        '<i class="fa-solid fa-arrow-left me-1"></i>Retour au site' +
+                    '</a></li>' +
+                    '<li><hr class="dropdown-divider"></li>' +
                     '<li>' +
                         '<form method="POST" action="/api/auth/logout" style="margin:0">' +
                             (csrfToken ? '<input type="hidden" name="__RequestVerificationToken" value="' + escapeHtml(csrfToken) + '">' : '') +
@@ -44,6 +48,8 @@
                 '</ul>' +
             '</div>';
     };
+
+    // ---- Reward targets ----
 
     // Selected targets: keycloakId -> display label.
     const targets = new Map();
@@ -71,7 +77,6 @@
         renderTargets();
     };
 
-    // Player search
     const searchInput = document.getElementById('ao-search-input');
     const searchBtn = document.getElementById('ao-search-btn');
     const resultsEl = document.getElementById('ao-search-results');
@@ -135,26 +140,25 @@
 
     const resultsSection = document.getElementById('ao-results-section');
     const resultsBody = document.getElementById('ao-results-body');
-    const renderResults = (results) => {
+    const renderGrantedTable = (granted) => {
         resultsBody.innerHTML = '';
-        results.forEach((r) => {
-            const detail = r.success
-                ? (r.grantedReferences && r.grantedReferences.length ? r.grantedReferences.join(', ') : 'OK')
-                : (r.error || 'Erreur');
+        Object.keys(granted).forEach((keycloakId) => {
             const tr = document.createElement('tr');
             tr.innerHTML =
-                '<td>' + escapeHtml(r.keycloakUserId) + '</td>' +
-                '<td>' + (r.success ? '<span class="text-success">Succès</span>' : '<span class="text-danger">Échec</span>') + '</td>' +
-                '<td>' + escapeHtml(detail) + '</td>';
+                '<td>' + escapeHtml(keycloakId) + '</td>' +
+                '<td>' + escapeHtml(granted[keycloakId].join(', ')) + '</td>';
             resultsBody.appendChild(tr);
         });
         resultsSection.hidden = false;
     };
 
+    // Both reward endpoints are all-or-nothing (see AdminEndpoints): a 2xx means
+    // every target got their reward, any error means nobody did.
     const submitReward = async (path, body) => {
         if (targets.size === 0) { setStatus('error', 'Sélectionnez au moins un joueur.'); return; }
 
         setStatus('info', 'Envoi en cours…');
+        resultsSection.hidden = true;
         try {
             const res = await fetch(path, {
                 method: 'POST',
@@ -162,9 +166,11 @@
                 headers: jsonHeaders(),
                 body: JSON.stringify(Object.assign({ keycloakUserIds: [...targets.keys()] }, body)),
             });
-            if (res.ok) {
-                setStatus(null, '');
-                renderResults(await res.json());
+            if (res.status === 204) {
+                setStatus('success', 'Carte(s) distribuée(s) à tous les joueurs ciblés.');
+            } else if (res.ok) {
+                setStatus('success', 'Uniques distribuées à tous les joueurs ciblés.');
+                renderGrantedTable(await res.json());
             } else {
                 setStatus('error', (await res.text()) || ('Erreur ' + res.status));
             }
@@ -192,7 +198,122 @@
         });
     });
 
-    // Bootstrap: must be logged in AND pass the admin-only ping check.
+    // ---- Admins management ----
+
+    const adminsBody = document.getElementById('ao-admins-body');
+    const adminStatusEl = document.getElementById('ao-admin-status');
+    const setAdminStatus = (kind, message) => {
+        if (!kind) { adminStatusEl.innerHTML = ''; return; }
+        const cls = kind === 'success' ? 'alert-success' : kind === 'error' ? 'alert-danger' : 'alert-info';
+        adminStatusEl.innerHTML = '<div class="alert ' + cls + ' mb-0" role="alert">' + escapeHtml(message) + '</div>';
+    };
+
+    const loadAdmins = async () => {
+        adminsBody.innerHTML = '<tr><td colspan="2" class="text-muted small">Chargement…</td></tr>';
+        try {
+            const res = await fetch('/api/admin/admins', { credentials: 'same-origin' });
+            if (!res.ok) { adminsBody.innerHTML = '<tr><td colspan="2" class="text-danger small">Erreur de chargement.</td></tr>'; return; }
+
+            const admins = await res.json();
+            adminsBody.innerHTML = '';
+            admins.forEach((a) => {
+                const label = (a.pseudo || a.email || a.keycloakId) + (a.pseudo && a.email ? ' (' + a.email + ')' : '');
+                const tr = document.createElement('tr');
+                const labelTd = document.createElement('td');
+                labelTd.textContent = label;
+                const actionTd = document.createElement('td');
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-sm btn-outline-danger';
+                removeBtn.textContent = 'Retirer';
+                removeBtn.addEventListener('click', () => demoteAdmin(a.keycloakId, label));
+                actionTd.appendChild(removeBtn);
+                tr.appendChild(labelTd);
+                tr.appendChild(actionTd);
+                adminsBody.appendChild(tr);
+            });
+        } catch {
+            adminsBody.innerHTML = '<tr><td colspan="2" class="text-danger small">Erreur de chargement.</td></tr>';
+        }
+    };
+
+    const setRole = async (keycloakId, role) => {
+        const res = await fetch('/api/admin/users/' + encodeURIComponent(keycloakId) + '/role', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders(),
+            body: JSON.stringify({ role }),
+        });
+        if (!res.ok) throw new Error((await res.text()) || ('Erreur ' + res.status));
+    };
+
+    const demoteAdmin = async (keycloakId, label) => {
+        if (!window.confirm('Retirer les droits admin de ' + label + ' ?')) return;
+        setAdminStatus('info', 'Mise à jour…');
+        try {
+            await setRole(keycloakId, 'Player');
+            setAdminStatus('success', label + ' n\'est plus admin.');
+            await loadAdmins();
+        } catch (err) {
+            setAdminStatus('error', err.message || String(err));
+        }
+    };
+
+    const promoteAdmin = async (keycloakId, label) => {
+        if (!window.confirm('Donner les droits admin à ' + label + ' ?')) return;
+        setAdminStatus('info', 'Mise à jour…');
+        try {
+            await setRole(keycloakId, 'Admin');
+            setAdminStatus('success', label + ' est maintenant admin.');
+            await loadAdmins();
+        } catch (err) {
+            setAdminStatus('error', err.message || String(err));
+        }
+    };
+
+    const adminSearchInput = document.getElementById('ao-admin-search-input');
+    const adminSearchBtn = document.getElementById('ao-admin-search-btn');
+    const adminResultsEl = document.getElementById('ao-admin-search-results');
+    const runAdminSearch = async () => {
+        const term = adminSearchInput.value.trim();
+        if (!term) { adminResultsEl.innerHTML = ''; return; }
+
+        adminResultsEl.innerHTML = '<div class="text-muted small p-2">Recherche…</div>';
+        try {
+            const res = await fetch('/api/admin/users/search?term=' + encodeURIComponent(term), { credentials: 'same-origin' });
+            if (!res.ok) { adminResultsEl.innerHTML = '<div class="text-danger small p-2">Erreur de recherche.</div>'; return; }
+
+            const users = await res.json();
+            if (!users.length) { adminResultsEl.innerHTML = '<div class="text-muted small p-2">Aucun résultat.</div>'; return; }
+
+            adminResultsEl.innerHTML = '';
+            users.forEach((u) => {
+                const label = (u.pseudo || u.email || u.keycloakId) + (u.pseudo && u.email ? ' (' + u.email + ')' : '');
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.textContent = label;
+                item.addEventListener('click', () => promoteAdmin(u.keycloakId, label));
+                adminResultsEl.appendChild(item);
+            });
+        } catch {
+            adminResultsEl.innerHTML = '<div class="text-danger small p-2">Erreur de recherche.</div>';
+        }
+    };
+    adminSearchBtn?.addEventListener('click', runAdminSearch);
+    adminSearchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); runAdminSearch(); }
+    });
+
+    document.getElementById('ao-admin-manual-add-btn')?.addEventListener('click', () => {
+        const input = document.getElementById('ao-admin-manual-id');
+        const id = input.value.trim();
+        if (!id) return;
+        promoteAdmin(id, id);
+        input.value = '';
+    });
+
+    // ---- Bootstrap: must be logged in AND pass the admin-only ping check ----
     (async () => {
         try {
             const meRes = await fetch('/api/auth/me', { credentials: 'same-origin' });
@@ -206,6 +327,7 @@
             if (!pingRes.ok) { deniedBlock.hidden = false; return; }
 
             contentBlock.hidden = false;
+            await loadAdmins();
         } catch {
             deniedBlock.hidden = false;
         }

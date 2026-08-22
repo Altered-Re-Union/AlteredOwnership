@@ -37,6 +37,26 @@ public static class AdminEndpoints
             return Results.Ok(users.Select(u => new AdminUserSearchResult(u.Id, u.Email, u.Pseudo)));
         });
 
+        // Current admins, resolved to display info for the admin page's management UI.
+        group.MapGet("admins", async (
+            OwnershipDbContext db,
+            IKeycloakAdminClient keycloak,
+            CancellationToken ct) =>
+        {
+            var adminIds = await db.Users
+                .Where(u => u.Role == UserRole.Admin)
+                .Select(u => u.KeycloakId)
+                .ToListAsync(ct);
+
+            var admins = new List<AdminUserSearchResult>();
+            foreach (var keycloakId in adminIds)
+            {
+                var kcUser = await keycloak.GetByIdAsync(keycloakId, ct);
+                admins.Add(new AdminUserSearchResult(keycloakId, kcUser?.Email, kcUser?.Pseudo));
+            }
+            return Results.Ok(admins);
+        });
+
         group.MapPost("users/{keycloakId}/role", async (
             string keycloakId,
             SetUserRoleRequest request,
@@ -48,6 +68,15 @@ public static class AdminEndpoints
             {
                 var userId = await provisioning.ResolveOrCreateAsync(keycloakId, ct);
                 var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+
+                if (request.Role == UserRole.Player && user.Role == UserRole.Admin)
+                {
+                    var adminCount = await db.Users.CountAsync(u => u.Role == UserRole.Admin, ct);
+                    if (adminCount <= 1)
+                        return Results.Text("Cannot remove the last remaining admin.", "text/plain", null,
+                            StatusCodes.Status409Conflict);
+                }
+
                 user.Role = request.Role;
                 await db.SaveChangesAsync(ct);
                 return Results.NoContent();

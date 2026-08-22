@@ -3,15 +3,16 @@
 window.AO_I18N = {
   en: {
     "nav.back": "Back to altered.re",
+    "nav.backHome": "Back",
     "auth.login": "Login",
     "auth.editProfile": "Edit my profile",
+    "auth.admin": "Admin",
     "auth.logout": "Logout",
+    "landing.title": "Altered Ownership",
+    "landing.viewCollection": "See my collection",
+    "landing.history": "History",
+    "landing.import": "Import my Equinox collection",
     "main.title": "Collection importer",
-    "section.why.title": "What for?",
-    "section.why.body":
-      "<p>First, for alternative arts. Tournaments draw more players when there are things to win, we all saw this with the prize packs Equinox provided in online tournaments. We may also bring back the adventure pass in the future. But for any of this to be possible, alternative arts must be restricted to the ones you actually own. And we don't want to make you start from scratch if you already had something.</p>" +
-      "<p>Second, some players want to play in formats where card ownership is required for uniques. The community will decide, through votes, whether this stays confined to specific tournaments, becomes one of several game modes on the BGA ladder, or becomes the Arena format. For now, nothing is decided.</p>" +
-      "<p>Whatever the reason, the tool is here for you to recover what you had.</p>",
     "section.export.title": "How do I export my current collection?",
     "section.export.body":
       '<p>Under GDPR, you can request access to your personal data from Equinox. You need to make the request by emailing <a href="mailto:support@altered.gg">support@altered.gg</a>, but with a significantly longer processing time.</li>',
@@ -37,26 +38,26 @@ window.AO_I18N = {
     "import.sessionExpired": "Session expired. Please log in again.",
     "import.error": "Error",
     "import.sendError": "Send failed",
-    "section.newCards.title": "How can I get new cards?",
-    "section.newCards.body":
-      "<p>Nothing is ready yet, but we're currently thinking about several things:</p>" +
-      "<ul>" +
-      "<li>A gifting and trading system</li>" +
-      "<li>An adventure pass</li>" +
-      "<li>Tournament rewards</li>" +
-      "</ul>",
+    "history.title": "History",
+    "history.loading": "Loading…",
+    "history.empty": "No events yet.",
+    "history.loadError": "Could not load your history.",
+    "history.networkError": "Network error.",
+    "history.received": "Cards received",
+    "history.given": "Cards given",
   },
   fr: {
     "nav.back": "Retour sur altered.re",
+    "nav.backHome": "Retour",
     "auth.login": "Connexion",
     "auth.editProfile": "Modifier mon profil",
+    "auth.admin": "Admin",
     "auth.logout": "Déconnexion",
+    "landing.title": "Altered Ownership",
+    "landing.viewCollection": "Voir ma collection",
+    "landing.history": "Historique",
+    "landing.import": "Importer ma collection d'Equinox",
     "main.title": "Importer ma collection",
-    "section.why.title": "Pour quoi faire ?",
-    "section.why.body":
-      "<p>D'abord pour les arts alternatifs. On sait qu'il y a plus de monde dans les tournois lorsqu'il y a des choses à gagner que lorsqu'il n'y en a pas ; on l'a tous vu avec l'arrivée des lots fournis par Equinox dans les tournois en ligne. On remettra peut-être aussi le pass aventure dans le futur. Mais pour que tout ça soit possible, il faut restreindre les arts alternatifs uniquement à ceux que l'on possède. Et on n'a pas envie de vous faire recommencer à zéro si vous aviez déjà quelque chose.</p>" +
-      "<p>Ensuite, certains joueurs souhaitent jouer dans des formats où la propriété des cartes serait obligatoire pour les uniques. La communauté décidera, par le biais de votes, si cela se cantonnera à des tournois spécifiques, si ce sera un mode de jeu accessible parmi d'autres dans le ladder de BGA ou si cela deviendra le format d'Arène. Pour le moment, rien n'est encore décidé.</p>" +
-      "<p>Quelle que soit la raison, vous avez à votre disposition l'outil pour récupérer ce que vous aviez.</p>",
     "section.export.title": "Comment exporter ma collection actuelle ?",
     "section.export.body":
       '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.fr">support@altered.fr</a> :</p>',
@@ -82,14 +83,13 @@ window.AO_I18N = {
     "import.sessionExpired": "Session expirée. Veuillez vous reconnecter.",
     "import.error": "Erreur",
     "import.sendError": "Échec de l’envoi",
-    "section.newCards.title": "Comment puis-je avoir de nouvelles cartes ?",
-    "section.newCards.body":
-      "<p>Pour l'instant, rien n'est encore prêt, mais on réfléchit actuellement à plusieurs sujets :</p>" +
-      "<ul>" +
-      "<li>Un système de dons et d'échanges</li>" +
-      "<li>Un pass aventure</li>" +
-      "<li>Des récompenses de tournois</li>" +
-      "</ul>",
+    "history.title": "Historique",
+    "history.loading": "Chargement…",
+    "history.empty": "Aucun événement pour le moment.",
+    "history.loadError": "Impossible de charger l'historique.",
+    "history.networkError": "Erreur réseau.",
+    "history.received": "Cartes reçues",
+    "history.given": "Cartes données",
   },
   es: {},
   it: {},
