@@ -22,6 +22,7 @@ builder.AddRedisDistributedCache("cache");
 builder.AddNpgsqlDbContext<OwnershipDbContext>("ownershipdb");
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<UnhandledExceptionLogger>();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 

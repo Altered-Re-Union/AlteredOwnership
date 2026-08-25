@@ -338,6 +338,16 @@
         if (e.key === 'Enter') { e.preventDefault(); runAdminSearch(); }
     });
 
+    // Dismiss either results dropdown when clicking outside its input/button/list.
+    document.addEventListener('click', (e) => {
+        if (resultsEl && !resultsEl.contains(e.target) && e.target !== searchInput && e.target !== searchBtn) {
+            resultsEl.innerHTML = '';
+        }
+        if (adminResultsEl && !adminResultsEl.contains(e.target) && e.target !== adminSearchInput && e.target !== adminSearchBtn) {
+            adminResultsEl.innerHTML = '';
+        }
+    });
+
     document.getElementById('ao-admin-manual-add-btn')?.addEventListener('click', () => {
         const input = document.getElementById('ao-admin-manual-id');
         const id = input.value.trim();
