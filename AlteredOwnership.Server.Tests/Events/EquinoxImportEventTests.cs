@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AlteredOwnership.Server.Domain.Events;
+using AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 namespace AlteredOwnership.Server.Tests.Events;
 
@@ -12,10 +13,10 @@ public class EquinoxImportEventTests
 
     private static Dictionary<string, int> Apply(EquinoxImportEvent.PayloadV1 payload)
     {
-        var state = new Dictionary<string, int>();
+        var state = new ProjectionState();
         var json = JsonSerializer.SerializeToDocument(payload);
         EquinoxImportEvent.Apply(state, json);
-        return state;
+        return state.Cards;
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public class EquinoxImportEventTests
     public void Apply_unsupported_version_throws()
     {
         var json = JsonSerializer.SerializeToDocument(new { Version = 99, Cards = Array.Empty<object>() });
-        Assert.Throws<NotSupportedException>(() => EquinoxImportEvent.Apply(new Dictionary<string, int>(), json));
+        Assert.Throws<NotSupportedException>(() => EquinoxImportEvent.Apply(new ProjectionState(), json));
     }
 
     [Fact]

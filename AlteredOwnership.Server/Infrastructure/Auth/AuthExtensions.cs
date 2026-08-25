@@ -168,7 +168,7 @@ public static class AuthExtensions
         services.AddAuthorization(opt =>
         {
             // Strict: SPA-only via cookie, must carry write-collection scope.
-            opt.AddPolicy(AuthConstants.ImportPolicy, p => p
+            opt.AddPolicy(AuthConstants.WritePolicy, p => p
                 .AddAuthenticationSchemes(AuthConstants.CookieScheme)
                 .RequireAuthenticatedUser()
                 .RequireAssertion(ctx => HasScope(ctx.User, AuthConstants.WriteScope)));

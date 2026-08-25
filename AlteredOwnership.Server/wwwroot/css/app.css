@@ -101,3 +101,86 @@ a:hover {
 #ao-main {
     max-width: 960px;
 }
+
+/* Booster tiles */
+.ao-booster-tile {
+    cursor: pointer;
+    border: 1px solid var(--ao-border);
+    border-radius: 0.5rem;
+    background: var(--ao-surface);
+    padding: 1rem;
+    text-align: center;
+}
+
+.ao-booster-tile:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.ao-booster-cover-img {
+    max-width: 100%;
+    height: 160px;
+    object-fit: contain;
+}
+
+/* Booster-opening overlay: a booster cover tilts with the pointer, then slides
+   down on click to reveal the card sitting underneath it (ported from the
+   click-triggered CSS transition in altered-draft's PackReveal component). */
+.ao-opener-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 26, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1080;
+}
+
+.ao-opener-stage {
+    position: relative;
+    width: 260px;
+    height: 360px;
+    perspective: 800px;
+}
+
+.ao-opener-card {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ao-opener-cover {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transform: translateY(0) rotateX(var(--ao-tilt-x, 0deg)) rotateY(var(--ao-tilt-y, 0deg));
+    transition: transform 500ms ease-in;
+    transform-style: preserve-3d;
+}
+
+.ao-opener-cover.ao-opening {
+    transform: translateY(130%);
+    transition: transform 500ms ease-in;
+}
+
+.ao-opener-cover img,
+.ao-opener-cover .ao-opener-cover-fallback {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.ao-opener-cover-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 220px;
+    height: 320px;
+    border-radius: 0.75rem;
+    background: linear-gradient(160deg, var(--ao-accent), var(--ao-accent-active));
+    color: #fff;
+}

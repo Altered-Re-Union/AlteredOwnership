@@ -31,29 +31,24 @@
     </header>
 
     <main id="ao-main" class="container py-4">
-        <h1 class="h3 mb-4" data-i18n="history.title">History</h1>
+        <h1 class="h3 mb-4" data-i18n="boosters.title">My boosters</h1>
 
-        <div id="ao-history-anon" hidden>
-            <a href="/api/auth/login?returnUrl=/history.html" class="btn btn-primary">
+        <div id="ao-boosters-anon" hidden>
+            <a href="/api/auth/login?returnUrl=/boosters.html" class="btn btn-primary">
                 <i class="fa-solid fa-user me-1"></i><span data-i18n="import.loginRegister">Log in / Sign up</span>
             </a>
         </div>
 
-        <div id="ao-history-loading" class="text-muted" data-i18n="history.loading">Loading…</div>
-        <div id="ao-history-empty" class="text-muted" hidden data-i18n="history.empty">No events yet.</div>
-        <div id="ao-history-error" class="alert alert-danger" hidden></div>
-        <div id="ao-history-list" class="list-group"></div>
+        <div id="ao-boosters-loading" class="text-muted" data-i18n="boosters.loading">Loading…</div>
+        <div id="ao-boosters-empty" class="text-muted" hidden data-i18n="boosters.empty">No boosters to open.</div>
+        <div id="ao-boosters-error" class="alert alert-danger" hidden></div>
+        <div id="ao-boosters-grid" class="row g-3"></div>
     </main>
 
-    <div class="modal fade" id="ao-event-modal" tabindex="-1" aria-hidden="true" aria-labelledby="ao-event-modal-title">
-        <div class="modal-dialog modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 class="modal-title h5" id="ao-event-modal-title"></h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="ao-event-modal-body"></div>
-            </div>
+    <div id="ao-opener-backdrop" class="ao-opener-backdrop" hidden>
+        <div class="ao-opener-stage">
+            <div id="ao-opener-card" class="ao-opener-card"></div>
+            <div id="ao-opener-cover" class="ao-opener-cover"></div>
         </div>
     </div>
 
@@ -61,6 +56,6 @@
     <script src="https://cdn.jsdelivr.net/gh/PolluxTroy0/Altered-Card-Renderer@main/altered-card-renderer-minified.js"></script>
     <script src="/js/i18n.js" defer></script>
     <script src="/js/app.js" defer></script>
-    <script src="/js/history.js" defer></script>
+    <script src="/js/boosters.js" defer></script>
 </body>
 </html>

@@ -24,11 +24,18 @@
 
     const cardLabel = (item) => (item.name || item.reference) + ' ×' + item.quantity;
 
+    // Uniques have no catalog image (the Cards table only knows base printed
+    // cards), so they're drawn live by the Altered-Card-Renderer web component
+    // instead of a static <img>.
+    const cardThumb = (item, sizePx) => item.isUnique
+        ? '<altered-card ref="' + escapeHtml(item.reference) + '" locale="' + escapeHtml(locale()) + '" style="width:' + sizePx + 'px;"></altered-card>'
+        : (item.imagePath
+            ? '<img src="' + escapeHtml(item.imagePath) + '" alt="" style="width:' + sizePx + 'px;height:auto;">'
+            : '');
+
     const renderPreview = (preview) => preview.map((item) =>
         '<span class="d-inline-flex align-items-center gap-1 small border rounded px-2 py-1">' +
-            (item.imagePath
-                ? '<img src="' + escapeHtml(item.imagePath) + '" alt="" style="width:22px;height:auto;">'
-                : '') +
+            cardThumb(item, 22) +
             '<span>' + escapeHtml(cardLabel(item)) + '</span>' +
         '</span>').join(' ');
 
@@ -68,9 +75,7 @@
             '<ul class="list-unstyled d-flex flex-column gap-2">' +
             lines.map((l) =>
                 '<li class="d-flex align-items-center gap-2">' +
-                    (l.imagePath
-                        ? '<img src="' + escapeHtml(l.imagePath) + '" alt="" style="width:36px;height:auto;">'
-                        : '') +
+                    cardThumb(l, 36) +
                     '<span>' + escapeHtml(l.name || l.reference) + '</span>' +
                     '<span class="ms-auto ' + (sign === '+' ? 'text-success' : 'text-danger') + ' fw-semibold">' +
                         sign + l.quantity +

@@ -9,6 +9,7 @@ public static class EventDescriber
     {
         EventKind.EquinoxImport => EquinoxImportEvent.Describe(evt.Payload),
         EventKind.RewardEvent => RewardEvent.Describe(evt.Payload),
+        EventKind.BoosterOpened => BoosterOpenedEvent.Describe(evt.Payload),
         _ => throw new NotSupportedException($"Unknown event kind {evt.Kind}"),
     };
 }

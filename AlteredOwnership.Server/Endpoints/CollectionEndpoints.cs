@@ -157,7 +157,7 @@ public static class CollectionEndpoints
 
             return Results.NoContent();
         })
-        .RequireAuthorization(AuthConstants.ImportPolicy);
+        .RequireAuthorization(AuthConstants.WritePolicy);
 
         return routes;
     }

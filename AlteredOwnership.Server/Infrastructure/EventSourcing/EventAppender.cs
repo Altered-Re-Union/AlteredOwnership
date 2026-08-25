@@ -47,7 +47,7 @@ public class EventAppender(OwnershipDbContext db, TimeProvider time)
     // Convenience for the common single-event case.
     public Task AppendAsync(
         OwnershipEvent newEvent,
-        Func<Dictionary<string, int>, CancellationToken, Task> reconcileProjectionAsync,
+        Func<ProjectionState, CancellationToken, Task> reconcileProjectionAsync,
         CancellationToken ct) =>
         RunInTransactionAsync((batch, c) => batch.AppendAsync(newEvent, reconcileProjectionAsync, c), ct);
 }
@@ -62,7 +62,7 @@ public class EventBatch(OwnershipDbContext db, TimeProvider time)
 
     public async Task AppendAsync(
         OwnershipEvent newEvent,
-        Func<Dictionary<string, int>, CancellationToken, Task> reconcileProjectionAsync,
+        Func<ProjectionState, CancellationToken, Task> reconcileProjectionAsync,
         CancellationToken ct)
     {
         if (!_historyByUser.TryGetValue(newEvent.UserId, out var history))

@@ -1,29 +1,36 @@
-﻿using System.Resources;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using AlteredOwnership.Server.Data.Entities;
+using AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 namespace AlteredOwnership.Server.Domain.Events;
 
+// An admin distribution: any mix of fixed cards and booster grants to one user,
+// recorded as a single event so the history page shows one line per distribution
+// instead of one per item. Never shipped to production, so the payload is free to
+// change shape in place — no version bump needed for this change.
 public static class RewardEvent
 {
     public const EventKind Kind = EventKind.RewardEvent;
     public const int CurrentVersion = 1;
-	
+
     public record PayloadV1(
         int Version,
-        string CardReference,
-        int Quantity,
-        string AcquiredFrom);
+        IReadOnlyList<PayloadV1.Item> Cards,
+        IReadOnlyList<PayloadV1.BoosterItem> Boosters,
+        string AcquiredFrom)
+    {
+        public record Item(string Reference, int Quantity);
+        public record BoosterItem(string BoosterTypeKey, int Quantity);
+    }
 
-    public static PayloadV1 Build(string cardReference, int quantity, string acquiredFrom)
-        => new(CurrentVersion, cardReference, quantity, acquiredFrom);
-		
-    public static void Apply(Dictionary<string, int> state, JsonDocument payloadJson)
+    public static PayloadV1 Build(
+        IReadOnlyList<PayloadV1.Item> cards, IReadOnlyList<PayloadV1.BoosterItem> boosters, string acquiredFrom)
+        => new(CurrentVersion, cards, boosters, acquiredFrom);
+
+    public static void Apply(ProjectionState state, JsonDocument payloadJson)
     {
         var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
-		
+
         switch (version)
         {
             case 1:
@@ -35,11 +42,20 @@ public static class RewardEvent
                 throw new NotSupportedException($"RewardEvent payload version {version} is not supported");
         }
     }
-	
-    private static void ApplyV1(Dictionary<string, int> state, PayloadV1 payload)
+
+    private static void ApplyV1(ProjectionState state, PayloadV1 payload)
     {
-        if (payload.Quantity <= 0) return;
-        state[payload.CardReference] = state.GetValueOrDefault(payload.CardReference) + payload.Quantity;
+        foreach (var item in payload.Cards)
+        {
+            if (item.Quantity <= 0) continue;
+            state.Cards[item.Reference] = state.Cards.GetValueOrDefault(item.Reference) + item.Quantity;
+        }
+
+        foreach (var booster in payload.Boosters)
+        {
+            if (booster.Quantity <= 0) continue;
+            state.Boosters[booster.BoosterTypeKey] = state.Boosters.GetValueOrDefault(booster.BoosterTypeKey) + booster.Quantity;
+        }
     }
 
     // For the history page: the event's name is the free-text AcquiredFrom the admin
@@ -55,12 +71,12 @@ public static class RewardEvent
         };
     }
 
-    private static EventDescription DescribeV1(PayloadV1 payload) =>
-        new(payload.AcquiredFrom, [new EventItemDelta(payload.CardReference, payload.Quantity)]);
-
-    // public static string ComputeHash(PayloadV1 payload)
-    // {
-    //     var canonical = string.Join("|", payload);
-    //     return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
-    // }
+    private static EventDescription DescribeV1(PayloadV1 payload)
+    {
+        var items = payload.Cards
+            .Select(c => new EventItemDelta(c.Reference, c.Quantity))
+            .Concat(payload.Boosters.Select(b => new EventItemDelta(b.BoosterTypeKey, b.Quantity, EventItemKind.Booster)))
+            .ToList();
+        return new EventDescription(payload.AcquiredFrom, items);
+    }
 }

@@ -68,54 +68,46 @@
                         <input type="radio" class="btn-check" name="ao-mode" id="ao-mode-card" autocomplete="off" checked>
                         <label class="btn btn-outline-primary" for="ao-mode-card">Carte spécifique</label>
                         <input type="radio" class="btn-check" name="ao-mode" id="ao-mode-unique" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="ao-mode-unique">Unique aléatoire</label>
+                        <label class="btn btn-outline-primary" for="ao-mode-unique">Booster</label>
                     </div>
 
-                    <form id="ao-form-card" class="d-flex flex-column gap-3">
+                    <div id="ao-form-card" class="d-flex flex-column gap-3">
                         <div>
                             <label class="form-label" for="ao-card-reference">Référence de la carte</label>
-                            <input id="ao-card-reference" type="text" class="form-control" required placeholder="ALT_CORE_B_AX_04_C">
+                            <input id="ao-card-reference" type="text" class="form-control" placeholder="ALT_CORE_B_AX_04_C">
                         </div>
                         <div>
                             <label class="form-label" for="ao-card-quantity">Quantité (par joueur)</label>
-                            <input id="ao-card-quantity" type="number" min="1" value="1" class="form-control" required style="max-width: 10rem">
+                            <input id="ao-card-quantity" type="number" min="1" value="1" class="form-control" style="max-width: 10rem">
                         </div>
-                        <div>
-                            <label class="form-label" for="ao-card-acquired-from">Origine (nom de l'événement)</label>
-                            <input id="ao-card-acquired-from" type="text" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary align-self-start">Donner la carte</button>
-                    </form>
+                        <button type="button" id="ao-card-add-btn" class="btn btn-outline-primary align-self-start">Ajouter</button>
+                    </div>
 
-                    <form id="ao-form-unique" class="d-flex flex-column gap-3" hidden>
+                    <div id="ao-form-unique" class="d-none flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-unique-set">Set (optionnel, vide = tous les sets)</label>
-                            <input id="ao-unique-set" type="text" class="form-control" placeholder="COREKS">
+                            <label class="form-label" for="ao-booster-type">Type de booster</label>
+                            <select id="ao-booster-type" class="form-select"></select>
                         </div>
                         <div>
-                            <label class="form-label" for="ao-unique-quantity">Quantité d'uniques (par joueur)</label>
-                            <input id="ao-unique-quantity" type="number" min="1" value="1" class="form-control" required style="max-width: 10rem">
+                            <label class="form-label" for="ao-booster-quantity">Quantité (par joueur)</label>
+                            <input id="ao-booster-quantity" type="number" min="1" value="1" class="form-control" style="max-width: 10rem">
                         </div>
+                        <button type="button" id="ao-booster-add-btn" class="btn btn-outline-primary align-self-start">Ajouter</button>
+                    </div>
+
+                    <div id="ao-reward-items" class="d-flex flex-wrap gap-2 mt-3"></div>
+
+                    <hr>
+
+                    <form id="ao-reward-form" class="d-flex flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-unique-acquired-from">Origine (nom de l'événement)</label>
-                            <input id="ao-unique-acquired-from" type="text" class="form-control" required>
+                            <label class="form-label" for="ao-reward-acquired-from">Origine (nom de l'événement)</label>
+                            <input id="ao-reward-acquired-from" type="text" class="form-control" required>
                         </div>
-                        <button type="submit" class="btn btn-primary align-self-start">Donner des uniques aléatoires</button>
+                        <button type="submit" class="btn btn-primary align-self-start">Donner la récompense</button>
                     </form>
 
                     <div id="ao-form-status" class="mt-3" role="status" aria-live="polite"></div>
-                </div>
-            </section>
-
-            <section id="ao-results-section" class="card mb-4" hidden>
-                <div class="card-body">
-                    <h3 class="h6 card-title">Uniques distribuées</h3>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead><tr><th>Joueur</th><th>Références reçues</th></tr></thead>
-                            <tbody id="ao-results-body"></tbody>
-                        </table>
-                    </div>
                 </div>
             </section>
 

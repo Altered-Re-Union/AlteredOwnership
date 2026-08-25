@@ -21,8 +21,9 @@ namespace AlteredOwnership.Server.Tests.Integration;
 public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     // libsodium secretbox key tests encrypt the collection with; the import endpoint
-    // is configured to decrypt with the same key below.
-    public const string DecryptionKeyHex = "";
+    // is configured to decrypt with the same key below. Generated solely for tests —
+    // not the real Equinox shared key, which is never committed.
+    public const string DecryptionKeyHex = "BEF7D79EF3E726C3D42F8EF39AF8E5764DF3C73BFCFED2B06B4AC9AFD16C01F0";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
@@ -112,7 +113,7 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
             // Production policies pin to CookieScheme/BearerScheme; repoint them to the test scheme.
             services.PostConfigure<AuthorizationOptions>(opt =>
             {
-                opt.AddPolicy(AuthConstants.ImportPolicy, p => p
+                opt.AddPolicy(AuthConstants.WritePolicy, p => p
                     .AddAuthenticationSchemes(TestAuthHandler.SchemeName)
                     .RequireAuthenticatedUser());
                 opt.AddPolicy(AuthConstants.ReadPolicy, p => p

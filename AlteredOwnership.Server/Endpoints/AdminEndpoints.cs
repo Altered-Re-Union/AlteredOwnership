@@ -1,6 +1,7 @@
 using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Data.Entities;
 using AlteredOwnership.Server.Domain;
+using AlteredOwnership.Server.Domain.Boosters;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Infrastructure.Auth;
 using Microsoft.EntityFrameworkCore;
@@ -11,9 +12,14 @@ public record AdminUserSearchResult(string KeycloakId, string? Email, string? Ps
 
 public record SetUserRoleRequest(UserRole Role);
 
-public record GiveCardRequest(string CardReference, int Quantity, string AcquiredFrom, List<string> KeycloakUserIds);
+public record BoosterTypeResponse(string Key, string Name);
 
-public record GiveRandomUniqueRequest(string? Set, int Quantity, string AcquiredFrom, List<string> KeycloakUserIds);
+public record CardGrant(string CardReference, int Quantity);
+
+public record BoosterGrant(string BoosterTypeKey, int Quantity);
+
+public record RewardBatchRequest(
+    List<string> KeycloakUserIds, string AcquiredFrom, List<CardGrant> Cards, List<BoosterGrant> Boosters);
 
 public static class AdminEndpoints
 {
@@ -87,14 +93,17 @@ public static class AdminEndpoints
             }
         });
 
-        // Both reward routes below are all-or-nothing for the whole request: every
-        // target is resolved/verified against Keycloak up front, then the grant(s) run
-        // inside one transaction (RewardService), so a mid-batch failure — a conflict,
-        // exhausted stock, or a crash — leaves no ambiguity about who got what: either
-        // the whole request went through, or none of it did.
+        group.MapGet("booster-types", () =>
+            Results.Ok(BoosterCatalog.All.Select(b => new BoosterTypeResponse(b.Key, b.Name))));
 
-        group.MapPost("rewards/card", async (
-            GiveCardRequest request,
+        // All-or-nothing for the whole request: every target is resolved/verified
+        // against Keycloak up front, then every grant runs inside one transaction
+        // (RewardService), so a mid-batch failure — a conflict or a crash — leaves no
+        // ambiguity about who got what: either the whole request went through, or
+        // none of it did. One RewardEvent per target, holding every card and booster
+        // grant from this request together (see RewardService.RewardBatchAsync).
+        group.MapPost("rewards", async (
+            RewardBatchRequest request,
             UserProvisioningService provisioning,
             RewardService rewards,
             CancellationToken ct) =>
@@ -102,10 +111,15 @@ public static class AdminEndpoints
             var targetIds = request.KeycloakUserIds.Distinct().ToList();
             if (targetIds.Count == 0)
                 return Results.BadRequest("At least one target is required.");
-            if (request.Quantity < 1)
+            if (request.Cards.Count == 0 && request.Boosters.Count == 0)
+                return Results.BadRequest("At least one card or booster grant is required.");
+            if (request.Cards.Any(c => c.Quantity < 1) || request.Boosters.Any(b => b.Quantity < 1))
                 return Results.BadRequest("Quantity must be at least 1.");
-            if (CardReferenceParser.IsUnique(request.CardReference) && request.Quantity != 1)
+            if (request.Cards.Any(c => CardReferenceParser.IsUnique(c.CardReference) && c.Quantity != 1))
                 return Results.BadRequest("A unique card can only be given with quantity 1.");
+            var unknownBoosterType = request.Boosters.FirstOrDefault(b => BoosterCatalog.Find(b.BoosterTypeKey) is null);
+            if (unknownBoosterType is not null)
+                return Results.BadRequest($"Unknown booster type '{unknownBoosterType.BoosterTypeKey}'.");
 
             var userIds = new List<Guid>();
             foreach (var keycloakId in targetIds)
@@ -123,8 +137,10 @@ public static class AdminEndpoints
 
             try
             {
-                await rewards.RewardManyAsync(
-                    userIds.Select(id => (id, request.CardReference, request.Quantity)).ToList(),
+                await rewards.RewardBatchAsync(
+                    userIds,
+                    request.Cards.Select(c => (c.CardReference, c.Quantity)).ToList(),
+                    request.Boosters.Select(b => (b.BoosterTypeKey, b.Quantity)).ToList(),
                     request.AcquiredFrom, ct);
             }
             catch (DuplicateUniquesException ex)
@@ -141,55 +157,6 @@ public static class AdminEndpoints
             }
 
             return Results.NoContent();
-        });
-
-        group.MapPost("rewards/random-unique", async (
-            GiveRandomUniqueRequest request,
-            UserProvisioningService provisioning,
-            RewardService rewards,
-            CancellationToken ct) =>
-        {
-            var targetIds = request.KeycloakUserIds.Distinct().ToList();
-            if (targetIds.Count == 0)
-                return Results.BadRequest("At least one target is required.");
-            if (request.Quantity < 1)
-                return Results.BadRequest("Quantity must be at least 1.");
-
-            var userIds = new List<Guid>();
-            var keycloakIdByUserId = new Dictionary<Guid, string>();
-            foreach (var keycloakId in targetIds)
-            {
-                try
-                {
-                    var userId = await provisioning.ResolveOrCreateAsync(keycloakId, ct);
-                    userIds.Add(userId);
-                    keycloakIdByUserId[userId] = keycloakId;
-                }
-                catch (KeycloakUserNotFoundException ex)
-                {
-                    return Results.Text($"{ex.Message} Nothing was granted.", "text/plain", null,
-                        StatusCodes.Status404NotFound);
-                }
-            }
-
-            Dictionary<Guid, List<string>> granted;
-            try
-            {
-                granted = await rewards.RewardRandomUniquesAsync(
-                    userIds, request.Set, request.Quantity, request.AcquiredFrom, ct);
-            }
-            catch (NoUniqueStockAvailableException ex)
-            {
-                return Results.Text($"{ex.Message} Nothing was granted.", "text/plain", null,
-                    StatusCodes.Status409Conflict);
-            }
-            catch (ConflictingUniquesException ex)
-            {
-                return Results.Text($"{ex.Message} Nothing was granted.", "text/plain", null,
-                    StatusCodes.Status409Conflict);
-            }
-
-            return Results.Ok(granted.ToDictionary(kv => keycloakIdByUserId[kv.Key], kv => kv.Value));
         });
 
         return routes;
