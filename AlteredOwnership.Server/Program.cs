@@ -48,6 +48,8 @@ builder.Services.AddScoped<OwnershipVerifier>();
 builder.Services.AddScoped<CollectionImporter>();
 builder.Services.AddScoped<CardMetadataBackfiller>();
 builder.Services.AddScoped<RewardService>();
+builder.Services.AddScoped<ProjectionReconciler>();
+builder.Services.AddScoped<BoosterService>();
 builder.Services.AddScoped<EventAppender>();
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<UniqueStockService>();
@@ -106,11 +108,14 @@ app.Use(async (ctx, next) =>
         "default-src 'self'; " +
         // Card artwork (Name/ImagePath from the cards.alteredcore.org catalog, shown
         // in the history page's event previews) is served from Altered's S3 bucket.
-        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com; " +
+        // cdn.alteredcore.org is the Altered-Card-Renderer's own image/data source,
+        // used to draw unique cards that have no catalog entry (history + boosters).
+        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org; " +
         "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        "script-src 'self'; " +
-        "connect-src 'self'; " +
+        // cdn.jsdelivr.net serves the Altered-Card-Renderer script itself.
+        "script-src 'self' https://cdn.jsdelivr.net; " +
+        "connect-src 'self' https://cdn.alteredcore.org; " +
         "frame-ancestors 'none'; " +
         "base-uri 'self'; " +
         $"form-action 'self' {externalHosts.AuthBase}";
@@ -175,6 +180,7 @@ app.MapAuthEndpoints();
 app.MapCollectionEndpoints();
 app.MapAdminEndpoints();
 app.MapHistoryEndpoints();
+app.MapBoosterEndpoints();
 app.MapDefaultEndpoints();
 
 // Surfaces a subset of ExternalHosts to the SPA so wwwroot/* stays env-agnostic.

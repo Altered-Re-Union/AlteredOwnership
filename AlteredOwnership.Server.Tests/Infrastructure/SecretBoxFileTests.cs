@@ -4,7 +4,9 @@ namespace AlteredOwnership.Server.Tests.Infrastructure;
 
 public class SecretBoxFileTests
 {
-    private const string SampleKeyHex = "";
+    // A key generated solely to encrypt this test fixture — not the real Equinox
+    // shared key (which is never committed; see EquinoxImportOptions.DecryptionKeyHex).
+    private const string SampleKeyHex = "BEF7D79EF3E726C3D42F8EF39AF8E5764DF3C73BFCFED2B06B4AC9AFD16C01F0";
     private const string PlaintextFile = "Encrypted_collection_test.csv";
     private const string EncryptedFile = "Encrypted_collection_test.csv.enc";
 

@@ -15,13 +15,17 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
 {
     private record CsrfResponse(string Token);
     private record CardOwnershipResponse(string Reference, int Quantity);
+    private record BoosterInventoryResponse(string BoosterTypeKey, string Name, string? ImagePath, int Quantity);
+    private record EventSummaryResponse(long Id, string Name, int Received, int Given);
 
     private const string AdminUser = "admin-rewards-admin";
 
     private readonly OwnershipApiFactory _factory;
     private readonly StubKeycloakAdminClient _keycloak = new StubKeycloakAdminClient()
         .KnownUser("reward-target-a", email: "a@example.com", pseudo: "PlayerA")
-        .KnownUser("reward-target-b", email: "b@example.com", pseudo: "PlayerB");
+        .KnownUser("reward-target-b", email: "b@example.com", pseudo: "PlayerB")
+        .KnownUser("reward-target-booster", email: "c@example.com", pseudo: "PlayerC")
+        .KnownUser("reward-target-mixed", email: "d@example.com", pseudo: "PlayerD");
     private readonly HttpClient _client;
 
     public AdminRewardsTests(OwnershipApiFactory factory)
@@ -52,23 +56,6 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         await db.SaveChangesAsync();
     }
 
-    private async Task SeedStockAsync(params (string Reference, string Set, bool IsDistributed)[] rows)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        foreach (var row in rows)
-        {
-            db.UniqueCardStock.Add(new UniqueCardStock
-            {
-                CardReference = row.Reference,
-                Set = row.Set,
-                Faction = "AX",
-                IsDistributed = row.IsDistributed,
-            });
-        }
-        await db.SaveChangesAsync();
-    }
-
     private async Task<string> FetchCsrfAsync()
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, "/api/auth/csrf");
@@ -78,10 +65,10 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         return (await res.Content.ReadFromJsonAsync<CsrfResponse>())!.Token;
     }
 
-    private async Task<HttpResponseMessage> PostAdminAsync(string path, object body)
+    private async Task<HttpResponseMessage> PostRewardAsync(object body)
     {
         var token = await FetchCsrfAsync();
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/admin/rewards") { Content = JsonContent.Create(body) };
         request.Headers.Add("X-CSRF-TOKEN", token);
         request.Headers.Add(TestAuthHandler.UserHeader, AdminUser);
         return await _client.SendAsync(request);
@@ -95,15 +82,33 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         return (await res.Content.ReadFromJsonAsync<CardOwnershipResponse[]>())!;
     }
 
+    private async Task<List<BoosterInventoryResponse>> GetBoostersAsync(string keycloakId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, "/api/boosters");
+        req.Headers.Add(TestAuthHandler.UserHeader, keycloakId);
+        using var res = await _client.SendAsync(req);
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<List<BoosterInventoryResponse>>())!;
+    }
+
+    private async Task<List<EventSummaryResponse>> GetHistoryAsync(string keycloakId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, "/api/history");
+        req.Headers.Add(TestAuthHandler.UserHeader, keycloakId);
+        using var res = await _client.SendAsync(req);
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<List<EventSummaryResponse>>())!;
+    }
+
     [Fact]
     public async Task Give_specific_card_to_multiple_targets_succeeds()
     {
-        var response = await PostAdminAsync("/api/admin/rewards/card", new
+        var response = await PostRewardAsync(new
         {
-            cardReference = "ALT_ALIZE_B_AX_60_C",
-            quantity = 3,
             acquiredFrom = "Test event",
             keycloakUserIds = new[] { "reward-target-a", "reward-target-b" },
+            cards = new[] { new { cardReference = "ALT_ALIZE_B_AX_60_C", quantity = 3 } },
+            boosters = Array.Empty<object>(),
         });
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -117,12 +122,12 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
     [Fact]
     public async Task Unique_card_with_quantity_other_than_one_is_rejected()
     {
-        var response = await PostAdminAsync("/api/admin/rewards/card", new
+        var response = await PostRewardAsync(new
         {
-            cardReference = "ALT_ALIZE_B_AX_61_U_1",
-            quantity = 2,
             acquiredFrom = "Test event",
             keycloakUserIds = new[] { "reward-target-a" },
+            cards = new[] { new { cardReference = "ALT_ALIZE_B_AX_61_U_1", quantity = 2 } },
+            boosters = Array.Empty<object>(),
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -131,12 +136,12 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
     [Fact]
     public async Task Giving_same_unique_to_two_targets_grants_nobody()
     {
-        var response = await PostAdminAsync("/api/admin/rewards/card", new
+        var response = await PostRewardAsync(new
         {
-            cardReference = "ALT_ALIZE_B_AX_62_U_2",
-            quantity = 1,
             acquiredFrom = "Test event",
             keycloakUserIds = new[] { "reward-target-a", "reward-target-b" },
+            cards = new[] { new { cardReference = "ALT_ALIZE_B_AX_62_U_2", quantity = 1 } },
+            boosters = Array.Empty<object>(),
         });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -154,12 +159,12 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
     [Fact]
     public async Task Unknown_keycloak_id_aborts_before_granting_to_anyone()
     {
-        var response = await PostAdminAsync("/api/admin/rewards/card", new
+        var response = await PostRewardAsync(new
         {
-            cardReference = "ALT_ALIZE_B_AX_63_C",
-            quantity = 1,
             acquiredFrom = "Test event",
             keycloakUserIds = new[] { "reward-target-a", "unknown-keycloak-id" },
+            cards = new[] { new { cardReference = "ALT_ALIZE_B_AX_63_C", quantity = 1 } },
+            boosters = Array.Empty<object>(),
         });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -171,101 +176,57 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
     }
 
     [Fact]
-    public async Task Random_unique_reward_respects_set_filter_marks_distributed_and_exhausts()
+    public async Task Unknown_booster_type_is_rejected()
     {
-        await SeedStockAsync(
-            ("ALT_SETA_B_AX_01_U_1", "SETA", false),
-            ("ALT_SETA_B_AX_02_U_2", "SETA", false),
-            ("ALT_SETA_B_AX_03_U_3", "SETA", true), // already distributed, must never be picked
-            ("ALT_SETB_B_AX_01_U_4", "SETB", false));
-
-        var response = await PostAdminAsync("/api/admin/rewards/random-unique", new
+        var response = await PostRewardAsync(new
         {
-            set = "SETA",
-            quantity = 2,
             acquiredFrom = "Test event",
             keycloakUserIds = new[] { "reward-target-a" },
+            cards = Array.Empty<object>(),
+            boosters = new[] { new { boosterTypeKey = "NOT_A_REAL_TYPE", quantity = 1 } },
         });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var granted = (await response.Content.ReadFromJsonAsync<Dictionary<string, List<string>>>())!;
-        var references = granted["reward-target-a"];
-        Assert.Equal(2, references.Count);
-        Assert.All(references, r => Assert.StartsWith("ALT_SETA", r));
-        Assert.DoesNotContain("ALT_SETA_B_AX_03_U_3", references);
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        Assert.True(await db.UniqueCardStock.AllAsync(s => s.Set != "SETA" || s.IsDistributed));
-
-        // Stock for SETA is now exhausted.
-        var exhaustedResponse = await PostAdminAsync("/api/admin/rewards/random-unique", new
-        {
-            set = "SETA",
-            quantity = 1,
-            acquiredFrom = "Test event",
-            keycloakUserIds = new[] { "reward-target-b" },
-        });
-        Assert.Equal(HttpStatusCode.Conflict, exhaustedResponse.StatusCode);
-        var body = await exhaustedResponse.Content.ReadAsStringAsync();
-        Assert.Contains("Nothing was granted", body);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task Random_unique_reward_without_set_filter_draws_and_marks_distributed()
+    public async Task Booster_grant_adds_to_the_targets_inventory_without_resolving_a_card()
     {
-        // Deliberately doesn't rely on sweeping/counting the whole table (which would
-        // be prohibitively expensive against the real ~5.4M-row production seed) —
-        // just checks the specific rows this call actually touched.
-        await SeedStockAsync(
-            ("ALT_NOFILTA_B_AX_01_U_1", "NOFILTA", false),
-            ("ALT_NOFILTB_B_AX_01_U_2", "NOFILTB", false));
-
-        var response = await PostAdminAsync("/api/admin/rewards/random-unique", new
+        var response = await PostRewardAsync(new
         {
-            set = (string?)null,
-            quantity = 2,
             acquiredFrom = "Test event",
-            keycloakUserIds = new[] { "reward-target-a" },
+            keycloakUserIds = new[] { "reward-target-booster" },
+            cards = Array.Empty<object>(),
+            boosters = new[] { new { boosterTypeKey = "UNIQUE_RANDOM", quantity = 3 } },
         });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var granted = (await response.Content.ReadFromJsonAsync<Dictionary<string, List<string>>>())!;
-        var references = granted["reward-target-a"];
-        Assert.Equal(2, references.Count);
-        Assert.Equal(2, references.Distinct().Count());
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        Assert.True(await db.UniqueCardStock
-            .Where(s => references.Contains(s.CardReference))
-            .AllAsync(s => s.IsDistributed));
+        var inventory = await GetBoostersAsync("reward-target-booster");
+        Assert.Equal(3, inventory.Single(b => b.BoosterTypeKey == "UNIQUE_RANDOM").Quantity);
     }
 
     [Fact]
-    public async Task Random_unique_reward_insufficient_stock_across_targets_grants_nobody()
+    public async Task Cards_and_boosters_in_one_request_produce_a_single_history_event()
     {
-        // Only 1 available, but 2 targets each asking for 1: total demand outruns
-        // supply, so the whole batch — including the first target's draw, which would
-        // have succeeded on its own — must roll back.
-        await SeedStockAsync(("ALT_SCARCE_B_AX_01_U_1", "SCARCE", false));
-
-        var response = await PostAdminAsync("/api/admin/rewards/random-unique", new
+        var response = await PostRewardAsync(new
         {
-            set = "SCARCE",
-            quantity = 1,
-            acquiredFrom = "Test event",
-            keycloakUserIds = new[] { "reward-target-a", "reward-target-b" },
+            acquiredFrom = "Convention 2026",
+            keycloakUserIds = new[] { "reward-target-mixed" },
+            cards = new[]
+            {
+                new { cardReference = "ALT_ALIZE_B_AX_64_C", quantity = 2 },
+                new { cardReference = "ALT_ALIZE_B_AX_65_C", quantity = 1 },
+            },
+            boosters = new[] { new { boosterTypeKey = "UNIQUE_RANDOM", quantity = 2 } },
         });
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var collectionA = await GetCollectionAsync("reward-target-a");
-        Assert.DoesNotContain(collectionA, c => c.Reference == "ALT_SCARCE_B_AX_01_U_1");
-
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        var row = await db.UniqueCardStock.SingleAsync(s => s.CardReference == "ALT_SCARCE_B_AX_01_U_1");
-        Assert.False(row.IsDistributed);
+        var events = await GetHistoryAsync("reward-target-mixed");
+        var evt = Assert.Single(events);
+        Assert.Equal("Convention 2026", evt.Name);
+        Assert.Equal(5, evt.Received); // 2 + 1 cards + 2 boosters
+        Assert.Equal(0, evt.Given);
     }
 }

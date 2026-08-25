@@ -71,14 +71,14 @@ public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
 
     private async Task ReconcileCardOwnershipsAsync(
         Guid userId,
-        Dictionary<string, int> expectedState,
+        ProjectionState expected,
         CancellationToken ct)
     {
         var currentRows = await db.CardOwnerships
             .Where(c => c.UserId == userId)
             .ToDictionaryAsync(c => c.CardReference, ct);
 
-        foreach (var (reference, quantity) in expectedState)
+        foreach (var (reference, quantity) in expected.Cards)
         {
             if (currentRows.Remove(reference, out var row))
             {

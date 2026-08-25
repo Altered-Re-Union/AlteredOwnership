@@ -6,7 +6,9 @@ public static class AuthConstants
     public const string OidcScheme = "Oidc";
     public const string BearerScheme = "Bearer";
 
-    public const string ImportPolicy = "ImportCollection";
+    // SPA-only via cookie, must carry write-collection scope. Used by every SPA
+    // action that mutates the collection projection (import, opening a booster).
+    public const string WritePolicy = "WriteCollection";
     public const string ReadPolicy = "ReadCollection";
     public const string AdminPolicy = "Admin";
 

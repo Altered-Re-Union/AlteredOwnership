@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using AlteredOwnership.Server.Data.Entities;
+using AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 namespace AlteredOwnership.Server.Domain.Events;
 
@@ -40,7 +41,7 @@ public static class EquinoxImportEvent
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 
-    public static void Apply(Dictionary<string, int> state, JsonDocument payloadJson)
+    public static void Apply(ProjectionState state, JsonDocument payloadJson)
     {
         var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
         switch (version)
@@ -55,14 +56,14 @@ public static class EquinoxImportEvent
         }
     }
 
-    private static void ApplyV1(Dictionary<string, int> state, PayloadV1 payload)
+    private static void ApplyV1(ProjectionState state, PayloadV1 payload)
     {
         foreach (var item in payload.Cards)
         {
             if (item.Quantity <= 0) continue;
             if (!CardReferenceParser.IsAlternateArt(item.Reference) && !CardReferenceParser.IsUnique(item.Reference)) continue;
 
-            state[item.Reference] = state.GetValueOrDefault(item.Reference) + item.Quantity;
+            state.Cards[item.Reference] = state.Cards.GetValueOrDefault(item.Reference) + item.Quantity;
         }
     }
 

@@ -11,6 +11,7 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
     public DbSet<User> Users => Set<User>();
     public DbSet<OwnershipEvent> OwnershipEvents => Set<OwnershipEvent>();
     public DbSet<CardOwnership> CardOwnerships => Set<CardOwnership>();
+    public DbSet<BoosterInventory> BoosterInventories => Set<BoosterInventory>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<UniqueCardStock> UniqueCardStock => Set<UniqueCardStock>();
 
@@ -45,6 +46,14 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.HasIndex(x => x.CardReference)
                 .IsUnique()
                 .HasFilter("\"IsUnique\" = true");
+        });
+
+        b.Entity<BoosterInventory>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.BoosterTypeKey });
+            e.Property(x => x.BoosterTypeKey).IsRequired();
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_BoosterInventories_QuantityNonNegative", "\"Quantity\" >= 0"));
         });
 
         b.Entity<Card>(e =>

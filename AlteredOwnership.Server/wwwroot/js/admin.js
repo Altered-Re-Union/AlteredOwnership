@@ -118,19 +118,78 @@
         textarea.value = '';
     });
 
-    // Mode toggle
+    // Mode toggle: which mini-form is shown for the next item to add.
     const formCard = document.getElementById('ao-form-card');
     const formUnique = document.getElementById('ao-form-unique');
     document.getElementById('ao-mode-card')?.addEventListener('change', () => {
-        formCard.hidden = false;
-        formUnique.hidden = true;
+        formCard.classList.replace('d-none', 'd-flex');
+        formUnique.classList.replace('d-flex', 'd-none');
     });
     document.getElementById('ao-mode-unique')?.addEventListener('change', () => {
-        formCard.hidden = true;
-        formUnique.hidden = false;
+        formCard.classList.replace('d-flex', 'd-none');
+        formUnique.classList.replace('d-none', 'd-flex');
     });
 
-    // Status + results
+    // Booster type choices for the "Booster" mini-form.
+    const boosterTypeSelect = document.getElementById('ao-booster-type');
+    let boosterTypesByKey = new Map();
+    const loadBoosterTypes = async () => {
+        try {
+            const res = await fetch('/api/admin/booster-types', { credentials: 'same-origin' });
+            if (!res.ok) return;
+            const types = await res.json();
+            boosterTypesByKey = new Map(types.map((t) => [t.key, t.name]));
+            boosterTypeSelect.innerHTML = types
+                .map((t) => '<option value="' + escapeHtml(t.key) + '">' + escapeHtml(t.name) + '</option>')
+                .join('');
+        } catch { /* leave the select empty; adding a booster will just no-op */ }
+    };
+
+    // ---- Cumulative reward items (cards + boosters) before a single submit ----
+
+    // { type: 'card', reference, quantity } | { type: 'booster', boosterTypeKey, quantity }
+    const rewardItems = [];
+    const rewardItemsEl = document.getElementById('ao-reward-items');
+    const renderRewardItems = () => {
+        rewardItemsEl.innerHTML = '';
+        rewardItems.forEach((item, index) => {
+            const label = item.type === 'card'
+                ? item.reference + ' ×' + item.quantity
+                : (boosterTypesByKey.get(item.boosterTypeKey) || item.boosterTypeKey) + ' ×' + item.quantity;
+            const chip = document.createElement('span');
+            chip.className = 'badge text-bg-light border d-inline-flex align-items-center gap-2 py-2 px-3';
+            chip.textContent = label;
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-close';
+            removeBtn.style.fontSize = '0.6rem';
+            removeBtn.setAttribute('aria-label', 'Retirer');
+            removeBtn.addEventListener('click', () => { rewardItems.splice(index, 1); renderRewardItems(); });
+            chip.appendChild(removeBtn);
+            rewardItemsEl.appendChild(chip);
+        });
+    };
+
+    document.getElementById('ao-card-add-btn')?.addEventListener('click', () => {
+        const reference = document.getElementById('ao-card-reference').value.trim();
+        const quantity = parseInt(document.getElementById('ao-card-quantity').value, 10);
+        if (!reference || !(quantity > 0)) { setStatus('error', 'Référence et quantité requises.'); return; }
+        rewardItems.push({ type: 'card', reference, quantity });
+        renderRewardItems();
+        document.getElementById('ao-card-reference').value = '';
+        document.getElementById('ao-card-quantity').value = '1';
+    });
+
+    document.getElementById('ao-booster-add-btn')?.addEventListener('click', () => {
+        const boosterTypeKey = boosterTypeSelect.value;
+        const quantity = parseInt(document.getElementById('ao-booster-quantity').value, 10);
+        if (!boosterTypeKey || !(quantity > 0)) { setStatus('error', 'Type de booster et quantité requis.'); return; }
+        rewardItems.push({ type: 'booster', boosterTypeKey, quantity });
+        renderRewardItems();
+        document.getElementById('ao-booster-quantity').value = '1';
+    });
+
+    // Status
     const statusEl = document.getElementById('ao-form-status');
     const setStatus = (kind, message) => {
         if (!kind) { statusEl.innerHTML = ''; return; }
@@ -138,64 +197,38 @@
         statusEl.innerHTML = '<div class="alert ' + cls + ' mb-0" role="alert">' + escapeHtml(message) + '</div>';
     };
 
-    const resultsSection = document.getElementById('ao-results-section');
-    const resultsBody = document.getElementById('ao-results-body');
-    const renderGrantedTable = (granted) => {
-        resultsBody.innerHTML = '';
-        Object.keys(granted).forEach((keycloakId) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML =
-                '<td>' + escapeHtml(keycloakId) + '</td>' +
-                '<td>' + escapeHtml(granted[keycloakId].join(', ')) + '</td>';
-            resultsBody.appendChild(tr);
-        });
-        resultsSection.hidden = false;
-    };
-
-    // Both reward endpoints are all-or-nothing (see AdminEndpoints): a 2xx means
-    // every target got their reward, any error means nobody did.
-    const submitReward = async (path, body) => {
+    // All-or-nothing (see AdminEndpoints): a 204 means every target got the whole
+    // reward in one event each, any error means nobody did.
+    document.getElementById('ao-reward-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
         if (targets.size === 0) { setStatus('error', 'Sélectionnez au moins un joueur.'); return; }
+        if (rewardItems.length === 0) { setStatus('error', 'Ajoutez au moins une carte ou un booster.'); return; }
 
         setStatus('info', 'Envoi en cours…');
-        resultsSection.hidden = true;
         try {
-            const res = await fetch(path, {
+            const res = await fetch('/api/admin/rewards', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: jsonHeaders(),
-                body: JSON.stringify(Object.assign({ keycloakUserIds: [...targets.keys()] }, body)),
+                body: JSON.stringify({
+                    keycloakUserIds: [...targets.keys()],
+                    acquiredFrom: document.getElementById('ao-reward-acquired-from').value.trim(),
+                    cards: rewardItems.filter((i) => i.type === 'card')
+                        .map((i) => ({ cardReference: i.reference, quantity: i.quantity })),
+                    boosters: rewardItems.filter((i) => i.type === 'booster')
+                        .map((i) => ({ boosterTypeKey: i.boosterTypeKey, quantity: i.quantity })),
+                }),
             });
             if (res.status === 204) {
-                setStatus('success', 'Carte(s) distribuée(s) à tous les joueurs ciblés.');
-            } else if (res.ok) {
-                setStatus('success', 'Uniques distribuées à tous les joueurs ciblés.');
-                renderGrantedTable(await res.json());
+                setStatus('success', 'Récompense distribuée à tous les joueurs ciblés.');
+                rewardItems.length = 0;
+                renderRewardItems();
             } else {
                 setStatus('error', (await res.text()) || ('Erreur ' + res.status));
             }
         } catch (err) {
             setStatus('error', 'Erreur réseau : ' + (err?.message || err));
         }
-    };
-
-    formCard?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        submitReward('/api/admin/rewards/card', {
-            cardReference: document.getElementById('ao-card-reference').value.trim(),
-            quantity: parseInt(document.getElementById('ao-card-quantity').value, 10),
-            acquiredFrom: document.getElementById('ao-card-acquired-from').value.trim(),
-        });
-    });
-
-    formUnique?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const set = document.getElementById('ao-unique-set').value.trim();
-        submitReward('/api/admin/rewards/random-unique', {
-            set: set || null,
-            quantity: parseInt(document.getElementById('ao-unique-quantity').value, 10),
-            acquiredFrom: document.getElementById('ao-unique-acquired-from').value.trim(),
-        });
     });
 
     // ---- Admins management ----
@@ -327,6 +360,7 @@
             if (!pingRes.ok) { deniedBlock.hidden = false; return; }
 
             contentBlock.hidden = false;
+            await loadBoosterTypes();
             await loadAdmins();
         } catch {
             deniedBlock.hidden = false;

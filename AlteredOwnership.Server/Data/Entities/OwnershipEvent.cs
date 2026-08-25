@@ -6,6 +6,7 @@ public enum EventKind
 {
     EquinoxImport = 1,
     RewardEvent = 2,
+    BoosterOpened = 3,
 }
 
 public class OwnershipEvent
