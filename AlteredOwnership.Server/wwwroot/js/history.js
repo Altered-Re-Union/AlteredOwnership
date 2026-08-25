@@ -35,7 +35,7 @@
 
     const renderPreview = (preview) => preview.map((item) =>
         '<span class="d-inline-flex align-items-center gap-1 small border rounded px-2 py-1">' +
-            cardThumb(item, 22) +
+            cardThumb(item, 40) +
             '<span>' + escapeHtml(cardLabel(item)) + '</span>' +
         '</span>').join(' ');
 
@@ -69,13 +69,55 @@
     const modalTitle = document.getElementById('ao-event-modal-title');
     const modalBody = document.getElementById('ao-event-modal-body');
 
+    // Zoom overlay: click a card in the detail modal to see it much bigger, with
+    // the same pointer-tilt effect as opening a booster (card-tilt.js).
+    const zoomBackdrop = document.getElementById('ao-card-zoom-backdrop');
+    const zoomContent = document.getElementById('ao-card-zoom-content');
+
+    const closeZoom = () => {
+        if (!zoomBackdrop) return;
+        zoomBackdrop.hidden = true;
+        window.AO_CARD_TILT?.detach(zoomContent);
+        zoomContent.innerHTML = '';
+    };
+    zoomBackdrop?.addEventListener('click', (e) => {
+        if (e.target === zoomBackdrop) closeZoom();
+    });
+
+    const openZoom = (ref, isUnique, name, imagePath) => {
+        if (!zoomBackdrop) return;
+        zoomContent.innerHTML = isUnique
+            ? '<altered-card ref="' + escapeHtml(ref) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
+            : (imagePath
+                ? '<img src="' + escapeHtml(imagePath) + '" alt="' + escapeHtml(name) + '" style="max-width:100%;max-height:100%;">'
+                : '<div class="ao-opener-cover-fallback"><i class="fa-solid fa-image fa-3x"></i></div>');
+        window.AO_CARD_TILT?.attach(zoomContent);
+        zoomBackdrop.hidden = false;
+    };
+
+    // Card thumbnails inside the modal aren't nested in another <button> (unlike the
+    // list-row preview strip, which lives inside the row's own clickable button), so
+    // they can safely be their own button that opens the zoom overlay on click.
+    const clickableThumb = (item, sizePx) =>
+        '<button type="button" class="ao-card-thumb-btn" data-ref="' + escapeHtml(item.reference) + '" ' +
+            'data-unique="' + (item.isUnique ? '1' : '') + '" data-name="' + escapeHtml(item.name || item.reference) + '" ' +
+            'data-image="' + escapeHtml(item.imagePath || '') + '">' +
+            cardThumb(item, sizePx) +
+        '</button>';
+
+    modalBody?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ao-card-thumb-btn');
+        if (!btn) return;
+        openZoom(btn.dataset.ref, btn.dataset.unique === '1', btn.dataset.name, btn.dataset.image);
+    });
+
     const renderLineGroup = (title, lines, sign) => {
         if (!lines.length) return '';
         return '<h3 class="h6 mt-3">' + escapeHtml(title) + '</h3>' +
             '<ul class="list-unstyled d-flex flex-column gap-2">' +
             lines.map((l) =>
                 '<li class="d-flex align-items-center gap-2">' +
-                    cardThumb(l, 36) +
+                    clickableThumb(l, 72) +
                     '<span>' + escapeHtml(l.name || l.reference) + '</span>' +
                     '<span class="ms-auto ' + (sign === '+' ? 'text-success' : 'text-danger') + ' fw-semibold">' +
                         sign + l.quantity +

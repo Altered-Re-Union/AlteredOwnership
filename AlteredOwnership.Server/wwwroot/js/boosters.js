@@ -33,7 +33,7 @@
                 coverHtml(booster, 'ao-booster-cover-img') +
                 '<div class="mt-2 fw-semibold">' + escapeHtml(booster.name) + '</div>' +
                 '<div class="text-muted small">×' + booster.quantity + '</div>';
-            btn.addEventListener('click', () => openBooster(booster, btn));
+            btn.addEventListener('click', () => showBooster(booster));
             col.appendChild(btn);
             gridEl.appendChild(col);
         });
@@ -64,9 +64,13 @@
         }
     };
 
-    // ---- Opening overlay: tilt on pointer move, click slides the cover away to
-    // reveal the card already drawn underneath (ported from altered-draft's
-    // click-triggered CSS transition — see plan notes). ----
+    // ---- Opening overlay ----
+    // Step 1 (tile click): show the sealed booster enlarged, tilting with the
+    // pointer — purely visual, no network call yet.
+    // Step 2 (click on the enlarged cover): THIS is what actually draws the card
+    // server-side (POST .../open), then plays the slide-away reveal once the card
+    // is known. Drawing must happen here, not in step 1, so nothing is committed
+    // until the player actually taps to open it.
 
     const backdrop = document.getElementById('ao-opener-backdrop');
     const coverEl = document.getElementById('ao-opener-cover');
@@ -80,23 +84,10 @@
         } catch { /* leave null; the open call will surface the error */ }
     };
 
-    const applyTilt = (clientX, clientY) => {
-        const rect = coverEl.getBoundingClientRect();
-        const px = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
-        const py = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100));
-        coverEl.style.setProperty('--ao-tilt-y', ((px - 50) / 3.5) + 'deg');
-        coverEl.style.setProperty('--ao-tilt-x', (-(py - 50) / 3.5) + 'deg');
-    };
-    const resetTilt = () => {
-        coverEl.style.setProperty('--ao-tilt-x', '0deg');
-        coverEl.style.setProperty('--ao-tilt-y', '0deg');
-    };
-
     const closeOverlay = () => {
         backdrop.hidden = true;
         coverEl.classList.remove('ao-opening');
-        coverEl.onpointermove = null;
-        coverEl.onpointerleave = null;
+        window.AO_CARD_TILT?.detach(coverEl);
         coverEl.onclick = null;
         coverEl.innerHTML = '';
         cardEl.innerHTML = '';
@@ -106,8 +97,17 @@
         if (e.target === backdrop) closeOverlay();
     });
 
-    const openBooster = async (booster, tileBtn) => {
-        tileBtn.disabled = true;
+    const showBooster = (booster) => {
+        coverEl.innerHTML = coverHtml(booster, '');
+        coverEl.classList.remove('ao-opening');
+        cardEl.innerHTML = '';
+        window.AO_CARD_TILT?.attach(coverEl);
+        coverEl.onclick = () => revealBooster(booster);
+        backdrop.hidden = false;
+    };
+
+    const revealBooster = async (booster) => {
+        coverEl.onclick = null; // no double-open while the request is in flight
         if (!csrfToken) await fetchCsrfToken();
 
         let opened;
@@ -123,14 +123,14 @@
             if (!res.ok) {
                 errorEl.hidden = false;
                 errorEl.textContent = (await res.text()) || t('boosters.openError', 'Could not open this booster.');
-                tileBtn.disabled = false;
+                coverEl.onclick = () => revealBooster(booster); // allow retry
                 return;
             }
             opened = await res.json();
         } catch {
             errorEl.hidden = false;
             errorEl.textContent = t('boosters.networkError', 'Network error.');
-            tileBtn.disabled = false;
+            coverEl.onclick = () => revealBooster(booster);
             return;
         }
 
@@ -138,19 +138,8 @@
         cardEl.innerHTML = card
             ? '<altered-card ref="' + escapeHtml(card.cardReference) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
             : '';
-        coverEl.innerHTML = coverHtml(booster, '');
-        coverEl.classList.remove('ao-opening');
-        resetTilt();
-
-        coverEl.onpointermove = (e) => applyTilt(e.clientX, e.clientY);
-        coverEl.onpointerleave = resetTilt;
-        coverEl.onclick = () => {
-            coverEl.classList.add('ao-opening');
-            coverEl.onpointermove = null;
-            coverEl.onclick = null;
-        };
-
-        backdrop.hidden = false;
+        window.AO_CARD_TILT?.detach(coverEl);
+        coverEl.classList.add('ao-opening');
     };
 
     loadBoosters();

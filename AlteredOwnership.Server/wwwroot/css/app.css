@@ -174,6 +174,23 @@ a:hover {
     max-height: 100%;
 }
 
+/* History: clickable card thumbnail (detail modal) that opens the zoom overlay. */
+.ao-card-thumb-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    line-height: 0;
+}
+
+/* Standalone tiltable card (history "zoom" view — no cover/reveal, just the card
+   itself tracking the pointer). Shares the --ao-tilt-x/--ao-tilt-y vars card-tilt.js
+   writes, but its own transform (no translateY-on-open like the booster cover). */
+.ao-tilt-card {
+    transform: rotateX(var(--ao-tilt-x, 0deg)) rotateY(var(--ao-tilt-y, 0deg));
+    transition: transform 100ms ease-out;
+}
+
 .ao-opener-cover-fallback {
     display: flex;
     align-items: center;
