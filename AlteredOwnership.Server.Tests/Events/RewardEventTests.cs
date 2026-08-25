@@ -66,6 +66,36 @@ public class RewardEventTests
         Assert.Empty(state.Boosters);
     }
 
+    // Dev/preprod environments that exercised the reward feature before it became
+    // list-shaped already have Version:1 events in this exact old shape — replay
+    // must keep reading them, not crash (regression: NullReferenceException on the
+    // now-null Cards list when deserializing straight into the current record).
+    [Fact]
+    public void Apply_reads_the_pre_list_shaped_payload()
+    {
+        var legacyJson = JsonDocument.Parse(
+            """{"Version":1,"CardReference":"ALT_ALIZE_A_AX_35_C","Quantity":2,"AcquiredFrom":"Old event"}""");
+        var state = new ProjectionState();
+
+        RewardEvent.Apply(state, legacyJson);
+
+        Assert.Equal(2, state.Cards["ALT_ALIZE_A_AX_35_C"]);
+    }
+
+    [Fact]
+    public void Describe_reads_the_pre_list_shaped_payload()
+    {
+        var legacyJson = JsonDocument.Parse(
+            """{"Version":1,"CardReference":"ALT_ALIZE_A_AX_35_C","Quantity":2,"AcquiredFrom":"Old event"}""");
+
+        var description = RewardEvent.Describe(legacyJson);
+
+        Assert.Equal("Old event", description.Name);
+        var item = Assert.Single(description.Items);
+        Assert.Equal("ALT_ALIZE_A_AX_35_C", item.Reference);
+        Assert.Equal(2, item.Quantity);
+    }
+
     [Fact]
     public void Apply_unsupported_version_throws()
     {

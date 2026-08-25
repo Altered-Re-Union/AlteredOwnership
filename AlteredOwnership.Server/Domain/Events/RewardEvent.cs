@@ -6,8 +6,11 @@ namespace AlteredOwnership.Server.Domain.Events;
 
 // An admin distribution: any mix of fixed cards and booster grants to one user,
 // recorded as a single event so the history page shows one line per distribution
-// instead of one per item. Never shipped to production, so the payload is free to
-// change shape in place — no version bump needed for this change.
+// instead of one per item. Never shipped to production, so the payload was changed
+// in place rather than bumping to a V2 — but dev/preprod environments that
+// exercised the reward feature before this change already have Version:1 events in
+// the old single-card shape ({CardReference, Quantity}, no Cards/Boosters lists at
+// all), so reads still have to tolerate that shape (see DeserializePayloadV1).
 public static class RewardEvent
 {
     public const EventKind Kind = EventKind.RewardEvent;
@@ -27,6 +30,24 @@ public static class RewardEvent
         IReadOnlyList<PayloadV1.Item> cards, IReadOnlyList<PayloadV1.BoosterItem> boosters, string acquiredFrom)
         => new(CurrentVersion, cards, boosters, acquiredFrom);
 
+    // Pre-existing Version:1 events written before Cards/Boosters existed have a
+    // top-level "CardReference"/"Quantity" instead — reshape those into the current
+    // record instead of deserializing straight into it (which leaves Cards/Boosters
+    // null and crashes Apply/Describe).
+    private static PayloadV1 DeserializePayloadV1(JsonDocument payloadJson)
+    {
+        var root = payloadJson.RootElement;
+        if (root.TryGetProperty("CardReference", out var legacyReference))
+        {
+            var quantity = root.GetProperty("Quantity").GetInt32();
+            var acquiredFrom = root.GetProperty("AcquiredFrom").GetString()!;
+            return new PayloadV1(1, [new PayloadV1.Item(legacyReference.GetString()!, quantity)], [], acquiredFrom);
+        }
+
+        return payloadJson.Deserialize<PayloadV1>()
+            ?? throw new InvalidOperationException("Cannot deserialize RewardEvent payload.");
+    }
+
     public static void Apply(ProjectionState state, JsonDocument payloadJson)
     {
         var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
@@ -34,9 +55,7 @@ public static class RewardEvent
         switch (version)
         {
             case 1:
-                ApplyV1(state,
-                    payloadJson.Deserialize<PayloadV1>() ??
-                    throw new InvalidOperationException("Cannot deserialize RewardEvent payload."));
+                ApplyV1(state, DeserializePayloadV1(payloadJson));
                 break;
             default:
                 throw new NotSupportedException($"RewardEvent payload version {version} is not supported");
@@ -65,8 +84,7 @@ public static class RewardEvent
         var version = payloadJson.RootElement.GetProperty("Version").GetInt32();
         return version switch
         {
-            1 => DescribeV1(payloadJson.Deserialize<PayloadV1>()
-                ?? throw new InvalidOperationException("Cannot deserialize RewardEvent payload.")),
+            1 => DescribeV1(DeserializePayloadV1(payloadJson)),
             _ => throw new NotSupportedException($"RewardEvent payload version {version} is not supported"),
         };
     }
