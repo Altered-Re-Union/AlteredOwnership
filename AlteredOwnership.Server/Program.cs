@@ -120,8 +120,9 @@ app.Use(async (ctx, next) =>
         // cdn.alteredcore.org is the Altered-Card-Renderer's own image/data source,
         // used to draw unique cards that have no catalog entry (history + boosters).
         "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org; " +
-        // cdn.alteredcore.org also serves the renderer's own fonts (HapticPro, alteredicons, ...).
-        "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.alteredcore.org; " +
+        // cdn.alteredcore.org also serves the renderer's own fonts (HapticPro, alteredicons, ...);
+        // data: covers its bundled Font Awesome Kit icon font, embedded as a base64 woff2.
+        "font-src 'self' data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.alteredcore.org; " +
         // The alteredicons icon font is pulled in via a <link rel=stylesheet> the renderer
         // injects at runtime, from the same cdn.alteredcore.org host as img-src/font-src.
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.alteredcore.org; " +
@@ -132,7 +133,10 @@ app.Use(async (ctx, next) =>
         // injected/reflected script still can't run. If new distinct hashes keep showing up
         // (e.g. one per card), that means the content is per-instance and this approach needs
         // revisiting.
+        // The renderer lazy-loads a QR lib from Altered's own CDN for some cards; scoped to
+        // that exact file rather than the whole cdn.alteredcore.org host.
         "script-src 'self' " + CardRendererScriptUrl +
+        " https://cdn.alteredcore.org/forge/assets/vendor/qrcodejs/qrcode.min.js" +
         " 'sha256-rvoYWRsJWALEi7RxCTeJ1+9+IKP6fTcNUMZNVHddmoo=' " +
         "'sha256-PSbJmyvxZNzvRDi+D/Qj0klN/RcQ2sw/ms/fz2MzO6Y=' " +
         "'sha256-STS9SqU0XU6MD9z/R5Vuu133130JZh3udAlYzLFvda4='; " +
