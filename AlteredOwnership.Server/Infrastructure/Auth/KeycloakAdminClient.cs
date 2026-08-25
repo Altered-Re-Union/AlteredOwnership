@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 
@@ -17,19 +18,27 @@ public interface IKeycloakAdminClient
 // (client_credentials grant, "view-users" role only — no write access). BaseAddress
 // is ExternalHosts:AuthBase (the bare Keycloak host), not Keycloak:Authority, because
 // the admin API lives outside the realm's OIDC endpoints.
-public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminOptions> options) : IKeycloakAdminClient
+public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminOptions> options, ILogger<KeycloakAdminClient> logger)
+    : IKeycloakAdminClient
 {
     private readonly KeycloakAdminOptions _options = options.Value;
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private string? _cachedToken;
     private DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
 
+    // Matches System.Net.Http.Json's ReadFromJsonAsync default ("web" case-insensitive
+    // matching) — needed here because logging the raw body means deserializing by hand.
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     // "pseudo" is a custom user attribute (see realm-export.json), not the Keycloak
     // username, so this goes through the admin API's attribute query ("q=key:value")
-    // rather than the username filter. Wrapping the value in *…* asks for an
-    // infix/contains match (LIKE '%value%') instead of Keycloak's default prefix match —
-    // fixed to actually respect this on custom attributes as of Keycloak 26.3
-    // (github.com/keycloak/keycloak/issues/39915; we run 26.6.4).
+    // rather than the username filter. Wrapping the value in *…* is meant to ask for
+    // an infix/contains match (LIKE '%value%') instead of Keycloak's default prefix
+    // match on custom attributes — reportedly fixed as of Keycloak 26.3
+    // (github.com/keycloak/keycloak/issues/39915), but pseudo search has been
+    // observed returning nothing against our actual 26.5.0 realm while email search
+    // (below) works, so that fix's applicability here is unconfirmed. Logged at
+    // Information so the exact request/result is visible without reproducing blind.
     public async Task<IReadOnlyList<KeycloakUserDto>> SearchByPseudoAsync(string pseudo, CancellationToken ct)
     {
         var token = await GetAccessTokenAsync(ct);
@@ -39,12 +48,18 @@ public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminO
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = await http.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        logger.LogInformation(
+            "Keycloak pseudo search: GET {RequestUri} -> {StatusCode} {Body}",
+            request.RequestUri, (int)response.StatusCode, body);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<List<KeycloakUserDto>>(ct) ?? [];
+        return JsonSerializer.Deserialize<List<KeycloakUserDto>>(body, JsonOptions) ?? [];
     }
 
     // Keycloak's "email" query param does an infix match unless exact=true is set.
+    // Logged the same way as the pseudo search above, for a direct side-by-side
+    // comparison of what each query actually sent/received.
     public async Task<IReadOnlyList<KeycloakUserDto>> SearchByEmailAsync(string email, CancellationToken ct)
     {
         var token = await GetAccessTokenAsync(ct);
@@ -55,9 +70,13 @@ public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminO
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = await http.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        logger.LogInformation(
+            "Keycloak email search: GET {RequestUri} -> {StatusCode} {Body}",
+            request.RequestUri, (int)response.StatusCode, body);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<List<KeycloakUserDto>>(ct) ?? [];
+        return JsonSerializer.Deserialize<List<KeycloakUserDto>>(body, JsonOptions) ?? [];
     }
 
     // "pseudo" is a custom attribute Keycloak's built-in username/email/name search

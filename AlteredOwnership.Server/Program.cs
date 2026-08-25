@@ -14,6 +14,14 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
+// Single source of truth for the pinned Altered-Card-Renderer build: used both for the
+// CSP script-src allow-list below and for the URL handed to wwwroot pages via /config.js.
+// Bump the commit here after reviewing the diff at
+// https://github.com/PolluxTroy0/Altered-Card-Renderer/commits/main — nowhere else.
+const string CardRendererCommit = "6e7a90f";
+const string CardRendererScriptUrl =
+    $"https://cdn.jsdelivr.net/gh/PolluxTroy0/Altered-Card-Renderer@{CardRendererCommit}/altered-card-renderer-minified.js";
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
@@ -114,9 +122,13 @@ app.Use(async (ctx, next) =>
         "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org; " +
         "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-        // cdn.jsdelivr.net serves the Altered-Card-Renderer script itself.
-        "script-src 'self' https://cdn.jsdelivr.net; " +
-        "connect-src 'self' https://cdn.alteredcore.org; " +
+        // Pinned to the exact file+commit the loader script requests (see CardRendererCommit
+        // above and /js/card-renderer-loader.js) so an unrelated jsdelivr-hosted script
+        // couldn't slip in here.
+        $"script-src 'self' {CardRendererScriptUrl}; " +
+        // cards.alteredcore.org is the Altered-Card-Renderer's card-lookup API
+        // (distinct from the CardsApiBase import client, which is server-only).
+        "connect-src 'self' https://cdn.alteredcore.org https://cards.alteredcore.org; " +
         "frame-ancestors 'none'; " +
         "base-uri 'self'; " +
         $"form-action 'self' {externalHosts.AuthBase}";
@@ -192,6 +204,7 @@ app.MapGet("/config.js", (HttpResponse response, IOptions<ExternalHostsOptions> 
     {
         reunionWebBase = cfg.ReunionWebBase,
         authBase = cfg.AuthBase,
+        cardRendererScriptUrl = CardRendererScriptUrl,
     });
     response.Headers.CacheControl = "public, max-age=300";
     return Results.Text($"window.AppConfig = {json};", "application/javascript");
