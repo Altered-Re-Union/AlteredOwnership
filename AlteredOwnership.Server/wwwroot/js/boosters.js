@@ -107,6 +107,7 @@
         backdrop.hidden = true;
         coverEl.classList.remove('ao-opening');
         window.AO_CARD_TILT?.detach(coverEl);
+        window.AO_CARD_TILT?.detach(cardEl);
         coverEl.onclick = null;
         openBtn.onclick = null;
         rotatorEl.innerHTML = '';
@@ -125,6 +126,7 @@
         const booster = boosterList[index];
         rotatorEl.innerHTML = coverHtml(booster, '');
         coverEl.classList.remove('ao-opening');
+        window.AO_CARD_TILT?.detach(cardEl);
         cardEl.innerHTML = '';
         infoEl.hidden = false;
         nameEl.textContent = booster.name;
@@ -188,6 +190,7 @@
         window.AO_CARD_TILT?.detach(coverEl);
         coverEl.classList.add('ao-opening');
         infoEl.hidden = true;
+        if (card) window.AO_CARD_TILT?.attach(cardEl);
 
         // Reflect the draw in the grid right away — it's still visible behind the dimmed
         // backdrop, and waiting until the overlay closes to update it reads as stale/wrong.

@@ -253,6 +253,17 @@ a:hover {
     width: 100%;
 }
 
+/* The renderer draws a plain rectangular canvas/image with square corners — round it
+   to match a real printed card (and the sealed pack art, which already has rounded
+   corners baked into its own art). */
+.ao-tilt-card altered-card,
+.ao-tilt-card img,
+.ao-collection-cover-img,
+.ao-booster-cover-img {
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
 .ao-opener-cover {
     position: absolute;
     inset: 0;

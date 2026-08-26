@@ -37,9 +37,16 @@ public static class CollectionEndpoints
             string? locale,
             CurrentUserAccessor currentUser,
             CollectionReader reader,
+            CardMetadataBackfiller backfiller,
             CancellationToken ct) =>
         {
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            // Best-effort catch-up for anything the import-time / open-time backfill missed
+            // (e.g. a reference the external catalog didn't have yet at the time), so the
+            // collection view doesn't keep showing a bare reference instead of the card's
+            // real name/image/stats until the hourly job gets to it. A no-op query when
+            // nothing's missing.
+            await backfiller.BackfillAsync(userId, ct);
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             return Results.Ok(await reader.GetCollectionAsync(userId, query, loc, ct));
         }).RequireAuthorization(AuthConstants.ReadPolicy);

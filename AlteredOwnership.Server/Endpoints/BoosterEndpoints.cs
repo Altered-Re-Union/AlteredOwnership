@@ -44,6 +44,7 @@ public static class BoosterEndpoints
             CurrentUserAccessor currentUser,
             BoosterService boosters,
             OwnershipDbContext db,
+            CardMetadataBackfiller backfiller,
             CancellationToken ct) =>
         {
             if (request.Quantity < 1)
@@ -68,6 +69,11 @@ public static class BoosterEndpoints
             {
                 return Results.Text(ex.Message, "text/plain", null, StatusCodes.Status409Conflict);
             }
+
+            // Best-effort, same as the import path: catch up on any drawn reference the
+            // catalog doesn't know yet (a no-op for uniques, which never get a catalog row —
+            // see CardMetadataBackfiller — but keeps this correct if that ever changes).
+            await backfiller.BackfillAsync(userId, ct);
 
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             var catalog = await db.Cards
