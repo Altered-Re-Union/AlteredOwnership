@@ -129,6 +129,26 @@ public class BoosterTests(OwnershipApiFactory factory) : IClassFixture<Ownership
     }
 
     [Fact]
+    public async Task Opening_the_last_booster_succeeds_and_removes_it_from_inventory()
+    {
+        // The exact 1->0 boundary, as opposed to Opening_more_boosters_than_owned_fails_and_
+        // grants_nothing below (1 owned, 2 requested) — this proves the non-negative guard
+        // doesn't also reject the legitimate last-copy case. ProjectionReconciler deletes the
+        // row outright at quantity 0 rather than keeping a zero row, so success here shows up
+        // as the booster type being absent from the inventory list, not Quantity == 0.
+        const string keycloakId = "booster-lastopen-user";
+        var userId = await SeedUserAsync(keycloakId);
+        await SeedStockAsync(("ALT_LASTOPEN_B_AX_01_U_1", "SETX", "AX", false));
+        await GrantBoosterAsync(userId, "UNIQUE_RANDOM_AXIOM", 1);
+
+        var response = await OpenBoosterAsync(keycloakId, "UNIQUE_RANDOM_AXIOM");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var inventory = await GetInventoryAsync(keycloakId);
+        Assert.DoesNotContain(inventory, b => b.BoosterTypeKey == "UNIQUE_RANDOM_AXIOM");
+    }
+
+    [Fact]
     public async Task Opening_more_boosters_than_owned_fails_and_grants_nothing()
     {
         const string keycloakId = "booster-overopen-user";

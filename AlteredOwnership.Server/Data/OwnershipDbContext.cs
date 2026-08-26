@@ -40,9 +40,18 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
         {
             e.HasKey(x => new { x.UserId, x.CardReference });
             e.Property(x => x.CardReference).IsRequired();
-            e.ToTable(t => t.HasCheckConstraint(
-                "CK_CardOwnerships_UniqueQuantityOne",
-                "(\"IsUnique\" = false) OR (\"Quantity\" = 1)"));
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_CardOwnerships_UniqueQuantityOne",
+                    "(\"IsUnique\" = false) OR (\"Quantity\" = 1)");
+                // Mirrors CK_BoosterInventories_QuantityNonNegative — nothing writes a
+                // decrement to this table today (only CollectionImporter, which always
+                // replaces Quantity with a freshly-replayed non-negative total), but there's
+                // no reason this table should be less protected than boosters if a
+                // spend/trade path is ever added.
+                t.HasCheckConstraint("CK_CardOwnerships_QuantityNonNegative", "\"Quantity\" >= 0");
+            });
             e.HasIndex(x => x.CardReference)
                 .IsUnique()
                 .HasFilter("\"IsUnique\" = true");
