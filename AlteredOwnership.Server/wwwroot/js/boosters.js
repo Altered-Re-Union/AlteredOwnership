@@ -228,18 +228,35 @@
         cardEl.innerHTML = card
             ? '<altered-card ref="' + escapeHtml(card.cardReference) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
             : '';
+        // The scale reveal below is applied to this inner element, not cardEl itself —
+        // cardEl carries the tilt's own rotateY/rotateX transform (attached below), and a
+        // second unrelated transform on the same element would just override it rather
+        // than compose with it.
+        const cardArtEl = cardEl.firstElementChild;
         if (card) await waitForCardReady(cardEl);
         openerLoadingEl.hidden = true;
         window.AO_CARD_TILT?.detach(rotatorEl);
+        // Held at the pack's own apparent size (see .ao-card-pending) while the pack is
+        // still sliding, so the card doesn't sit there at full size — jarringly bigger than
+        // the pack — for the whole 500ms it's still covered.
+        cardArtEl?.classList.add('ao-card-pending');
         coverEl.classList.add('ao-opening');
-        // The slide-down only moves the cover off screen visually — the pack art (which
-        // bleeds past the cover's own box, see .ao-opener-cover img) can otherwise still
-        // peek back into view, e.g. behind the revealed card on a short viewport. Once the
-        // slide finishes, drop it for real. Guarded on the class still being set: if the
-        // player has since browsed to another booster, showSealed() already replaced
-        // rotatorEl's content and removed this class — this stale event must not wipe that.
+        // Only once the pack has finished sliding away — not at the same time as it — drop
+        // it for real (it can otherwise still peek back into view, e.g. behind the revealed
+        // card on a short viewport) and hand off from pending straight into the reveal-zoom
+        // (see .ao-card-revealing): sequential reads as "pack slides down, then card grows",
+        // rather than both happening on top of each other. Guarded on the class still being
+        // set: if the player has since browsed to another booster, showSealed() already
+        // replaced rotatorEl's content and removed this class — this stale event must not
+        // wipe that or zoom a card that isn't on screen anymore.
         coverEl.addEventListener('transitionend', () => {
-            if (coverEl.classList.contains('ao-opening')) rotatorEl.innerHTML = '';
+            if (!coverEl.classList.contains('ao-opening')) return;
+            rotatorEl.innerHTML = '';
+            if (cardArtEl) {
+                cardArtEl.classList.remove('ao-card-pending');
+                cardArtEl.classList.add('ao-card-revealing');
+                cardArtEl.addEventListener('animationend', () => cardArtEl.classList.remove('ao-card-revealing'), { once: true });
+            }
         }, { once: true });
         infoEl.hidden = true;
         // Every booster draws a unique — always eligible for the gold holo shine.

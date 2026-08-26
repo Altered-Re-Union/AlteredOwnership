@@ -255,10 +255,11 @@ a:hover {
 
 /* Set/edition filters: a tile with the key-art as the button's own background and the name
    captioned over a full-tile dark scrim that thins out on hover/active — ported from
-   altered.re's own set-quick-filter buttons (same 82×60 size, radius, scrim opacities).
-   contain (not their cover): our set art files are small flat icons, not the landscape
-   key-art crop altered.re uses there, so filling/cropping them would look wrong — this
-   guarantees the whole icon stays visible regardless of its native shape. */
+   altered.re's own set-quick-filter buttons, including the actual art (same 82×60 size,
+   radius, scrim opacities, and the same small_bg/<SET>.webp crops, copied from
+   alteredcore-website's plugins/core-altered-cards/assets/set/small_bg/ into
+   img/sets/ — these are pre-cropped landscape key-art, unlike the placeholder icons that
+   were there before, so cover (fill + crop to the box) is the right fit now, not contain. */
 .ao-image-filter-row {
     display: flex;
     flex-wrap: wrap;
@@ -279,7 +280,7 @@ a:hover {
     background-color: #cfd3e0;
     background-repeat: no-repeat;
     background-position: center;
-    background-size: contain;
+    background-size: cover;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -437,6 +438,26 @@ a:hover {
 .ao-tilt-card altered-card {
     display: block;
     width: 100%;
+}
+
+/* Booster reveal: held at ~the sealed pack's own apparent width (measured: contained to
+   its aspect ratio, the pack renders at ~0.8 of the stage's width) while the pack is still
+   sliding away, then grown to full size once it's clear — see boosters.js's revealBooster,
+   which sequences .ao-card-pending → .ao-card-revealing off the pack's own transitionend
+   rather than starting both at once. Applied to the <altered-card> element itself, not
+   cardEl (which carries the tilt's own rotateY/rotateX) — a second transform on the same
+   element would override that instead of composing with it. */
+.ao-card-pending {
+    transform: scale(0.8);
+}
+
+@keyframes ao-card-reveal {
+    from { transform: scale(0.8); }
+    to { transform: scale(1); }
+}
+
+.ao-card-revealing {
+    animation: ao-card-reveal 500ms ease-out both;
 }
 
 /* The renderer draws a plain rectangular canvas/image with square corners — round it

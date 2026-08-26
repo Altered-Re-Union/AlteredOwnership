@@ -21,7 +21,8 @@
         ['AX', 'Axiom'], ['BR', 'Bravos'], ['LY', 'Lyra'],
         ['MU', 'Muna'], ['OR', 'Ordis'], ['YZ', 'Yzmir'],
     ];
-    const SET_CODES = ['ALIZE', 'BISE', 'CORE', 'COREKS', 'CYCLONE', 'DUSTER', 'EOLE', 'FUGUE'];
+    // Newest set first — matches altered.re's own set-picker order exactly.
+    const SET_CODES = ['FUGUE', 'EOLE', 'DUSTER', 'CYCLONE', 'BISE', 'ALIZE', 'COREKS', 'CORE'];
     const SETS = () => SET_CODES.map((code) => [code, t('set.' + code, code)]);
     // Single-letter labels, fixed across every locale — matches altered.re's own compact
     // rarity chips, and keeps faction+rarity fitting on one shared row. The full localized
@@ -277,9 +278,7 @@
             appEl.hidden = false;
 
             iconToggleRow(factionRowEl, FACTIONS, activeFactions, (code) => '/img/factions/' + code + '.webp');
-            // FUGUE has no official set logo yet (see BoosterCatalog.cs) — no art file for it,
-            // so that one tile falls back to a plain background with just its label.
-            imageToggleRow(setRowEl, SETS(), activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
+            imageToggleRow(setRowEl, SETS(), activeSets, (code) => '/img/sets/' + code + '.webp');
             iconToggleRow(rarityRowEl, RARITIES(), activeRarities, (code) => RARITY_ICONS[code], true);
             refreshDynamicFacets();
             applyFilters();
