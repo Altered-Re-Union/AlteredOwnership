@@ -119,7 +119,8 @@ app.Use(async (ctx, next) =>
         // in the history page's event previews) is served from Altered's S3 bucket.
         // cdn.alteredcore.org is the Altered-Card-Renderer's own image/data source,
         // used to draw unique cards that have no catalog entry (history + boosters).
-        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org; " +
+        // altered.re hosts the "Altered Fan Content" footer credit logo.
+        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org https://altered.re; " +
         // cdn.alteredcore.org also serves the renderer's own fonts (HapticPro, alteredicons, ...);
         // data: covers its bundled Font Awesome Kit icon font, embedded as a base64 woff2.
         "font-src 'self' data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.alteredcore.org; " +
@@ -140,7 +141,11 @@ app.Use(async (ctx, next) =>
         " 'sha256-rvoYWRsJWALEi7RxCTeJ1+9+IKP6fTcNUMZNVHddmoo=' " +
         "'sha256-PSbJmyvxZNzvRDi+D/Qj0klN/RcQ2sw/ms/fz2MzO6Y=' " +
         "'sha256-STS9SqU0XU6MD9z/R5Vuu133130JZh3udAlYzLFvda4=' " +
-        "'sha256-kHSVOw8OSbTT44VL4R5JhFCdmB5YzppScj+fO7BJTQI='; " +
+        "'sha256-kHSVOw8OSbTT44VL4R5JhFCdmB5YzppScj+fO7BJTQI=' " +
+        // Seen once the collection page started rendering every unique via <altered-card>
+        // instead of a handful at a time on the boosters/history pages — more of these may
+        // surface as more of the renderer's code paths get exercised (see the note above).
+        "'sha256-YbNyYbuzZL3CXPMVd1u5A1/OmmOIoR6YRcL+8+4N/XQ='; " +
         // cards.alteredcore.org is the Altered-Card-Renderer's card-lookup API
         // (distinct from the CardsApiBase import client, which is server-only).
         "connect-src 'self' https://cdn.alteredcore.org https://cards.alteredcore.org; " +

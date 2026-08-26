@@ -40,7 +40,7 @@
     const factionRowEl = document.getElementById('ao-filter-faction');
     const setRowEl = document.getElementById('ao-filter-set');
     const rarityRowEl = document.getElementById('ao-filter-rarity');
-    const typeSelect = document.getElementById('ao-filter-type');
+    const typeRowEl = document.getElementById('ao-filter-type-row');
     const variationSelect = document.getElementById('ao-filter-variation');
     const subtypeSelect = document.getElementById('ao-filter-subtype');
     const resetBtn = document.getElementById('ao-filter-reset');
@@ -58,20 +58,45 @@
     const activeFactions = new Set();
     const activeSets = new Set();
     const activeRarities = new Set();
+    const activeTypes = new Set();
 
+    // Shared click/active-state wiring for both toggle-row styles below.
+    const wireToggle = (btn, code, activeSet) => {
+        btn.type = 'button';
+        btn.addEventListener('click', () => {
+            if (activeSet.has(code)) activeSet.delete(code); else activeSet.add(code);
+            btn.classList.toggle('active');
+            applyFilters();
+        });
+    };
+
+    // Rarity/type: no art to show for these (no gem/type icon set), so a plain text pill.
     const iconToggleRow = (container, entries, activeSet, iconPath) => {
         container.innerHTML = '';
         entries.forEach(([code, label]) => {
             const btn = document.createElement('button');
-            btn.type = 'button';
             btn.className = 'ao-icon-filter-btn';
             btn.innerHTML = (iconPath(code) ? '<img src="' + iconPath(code) + '" alt="">' : '') +
                 '<span>' + escapeHtml(label) + '</span>';
-            btn.addEventListener('click', () => {
-                if (activeSet.has(code)) activeSet.delete(code); else activeSet.add(code);
-                btn.classList.toggle('active');
-                applyFilters();
-            });
+            wireToggle(btn, code, activeSet);
+            container.appendChild(btn);
+        });
+    };
+
+    // Set/edition: a tile with the key-art as the button's own background and the label
+    // captioned over it — ported from altered.re's own set picker. Faction stays a small
+    // icon pill (see iconToggleRow below) — altered.re treats those two differently.
+    const imageToggleRow = (container, entries, activeSet, imagePath) => {
+        container.innerHTML = '';
+        entries.forEach(([code, label]) => {
+            const btn = document.createElement('button');
+            btn.className = 'ao-image-filter-btn';
+            const art = imagePath(code);
+            if (art) btn.style.backgroundImage = 'url(\'' + art + '\')';
+            const labelEl = document.createElement('span');
+            labelEl.textContent = label;
+            btn.appendChild(labelEl);
+            wireToggle(btn, code, activeSet);
             container.appendChild(btn);
         });
     };
@@ -101,7 +126,7 @@
             if (c.variation) variations.add(c.variation);
             (c.subTypes || []).forEach((s) => subtypes.add(s));
         });
-        populateSelect(typeSelect, Array.from(types).sort());
+        iconToggleRow(typeRowEl, Array.from(types).sort().map((v) => [v, prettify(v)]), activeTypes, () => null);
         populateSelect(variationSelect, Array.from(variations).sort());
         populateSelect(subtypeSelect, Array.from(subtypes).sort());
     };
@@ -119,7 +144,11 @@
         return true;
     };
 
-    const cardThumb = (item) => item.isUnique && !item.imagePath
+    // Uniques have no catalog image of their own — same reasoning as history.js's
+    // cardThumb/openZoom below: always draw them live via the Altered-Card-Renderer web
+    // component rather than a static <img>, even when a (broken/unreachable) imagePath
+    // happens to be present from a catalog join.
+    const cardThumb = (item) => item.isUnique
         ? '<altered-card ref="' + escapeHtml(item.reference) + '" locale="' + escapeHtml(locale()) + '" style="width:100%;"></altered-card>'
         : (item.imagePath
             ? '<img src="' + escapeHtml(item.imagePath) + '" alt="" class="ao-collection-cover-img">'
@@ -129,13 +158,15 @@
         gridEl.innerHTML = '';
         cards.forEach((card) => {
             const col = document.createElement('div');
-            col.className = 'col-6 col-md-3 col-lg-2';
+            col.className = 'col-6 col-md-3';
             const tile = document.createElement('button');
             tile.type = 'button';
             tile.className = 'ao-collection-tile w-100';
+            // The card's own art already shows its name — no need to repeat it as text.
+            tile.setAttribute('aria-label', card.name || card.reference);
+            tile.title = card.name || card.reference;
             tile.innerHTML =
                 cardThumb(card) +
-                '<div class="mt-2 fw-semibold small">' + escapeHtml(card.name || card.reference) + '</div>' +
                 '<div class="text-muted small ao-collection-qty">×' + card.quantity + '</div>';
             tile.addEventListener('click', () => openZoom(card));
             col.appendChild(tile);
@@ -145,7 +176,6 @@
 
     const applyFilters = () => {
         const name = nameInput.value.trim().toLowerCase();
-        const types = new Set(multiSelectValues(typeSelect));
         const variations = new Set(multiSelectValues(variationSelect));
         const subtypes = new Set(multiSelectValues(subtypeSelect));
         const mainCost = numericFilter('maincost');
@@ -159,7 +189,7 @@
             if (activeFactions.size && !activeFactions.has(c.faction)) return false;
             if (activeSets.size && !activeSets.has(c.set)) return false;
             if (activeRarities.size && !activeRarities.has(c.rarity)) return false;
-            if (types.size && !types.has(c.cardType)) return false;
+            if (activeTypes.size && !activeTypes.has(c.cardType)) return false;
             if (variations.size && !variations.has(c.variation)) return false;
             if (subtypes.size && !(c.subTypes || []).some((s) => subtypes.has(s))) return false;
             if (!passesNumeric(c.mainCost, mainCost)) return false;
@@ -176,7 +206,7 @@
     };
 
     nameInput.addEventListener('input', applyFilters);
-    [typeSelect, variationSelect, subtypeSelect].forEach((sel) => sel.addEventListener('change', applyFilters));
+    [variationSelect, subtypeSelect].forEach((sel) => sel.addEventListener('change', applyFilters));
     numericIds.forEach((id) => {
         numericInputs[id].min.addEventListener('input', applyFilters);
         numericInputs[id].max.addEventListener('input', applyFilters);
@@ -187,10 +217,11 @@
         activeFactions.clear();
         activeSets.clear();
         activeRarities.clear();
+        activeTypes.clear();
         factionRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         setRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         rarityRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
-        typeSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
+        typeRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         variationSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
         subtypeSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
         numericIds.forEach((id) => { numericInputs[id].min.value = ''; numericInputs[id].max.value = ''; });
@@ -235,8 +266,9 @@
             appEl.hidden = false;
 
             iconToggleRow(factionRowEl, FACTIONS, activeFactions, (code) => '/img/factions/' + code + '.webp');
-            // FUGUE has no official set logo yet (see BoosterCatalog.cs) — no icon file for it.
-            iconToggleRow(setRowEl, SETS, activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
+            // FUGUE has no official set logo yet (see BoosterCatalog.cs) — no art file for it,
+            // so that one tile falls back to a plain background with just its label.
+            imageToggleRow(setRowEl, SETS, activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
             iconToggleRow(rarityRowEl, RARITIES, activeRarities, () => null);
             refreshDynamicFacets();
             applyFilters();

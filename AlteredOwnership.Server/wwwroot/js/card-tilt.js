@@ -84,6 +84,11 @@ window.AO_CARD_TILT = (() => {
         el.onpointermove = null;
         el.onpointerleave = null;
         orientationTargets.delete(el);
+        // ao-tilt-holo's halo box-shadow isn't opacity-gated (it's meant to sit on the card
+        // permanently, not just while tilting) — leaving the class on after detach left it
+        // glowing around the next, still-empty card container until something holo was
+        // attached again.
+        el.classList.remove('ao-tilt-holo');
         reset(el);
     };
 

@@ -7,8 +7,38 @@
     --ao-border: #e6e8f0;
 }
 
+/* Sticky footer: pinned to the bottom of the viewport on a short page, pushed down to
+   after the content (not floating over it) on a page tall enough to scroll. #ao-main
+   grows to fill any leftover space; the footer stays its own natural size after it. */
+html, body {
+    height: 100%;
+}
+
 body {
     background-color: #f8f9fb;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+#ao-main {
+    flex: 1 0 auto;
+}
+
+.ao-footer {
+    flex-shrink: 0;
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ao-footer-logo {
+    height: 28px;
+    width: auto;
+    opacity: 0.8;
 }
 
 /* Recolor Bootstrap's primary buttons/links to the indigo accent without a custom build. */
@@ -135,6 +165,22 @@ a:hover {
     border-bottom-color: var(--ao-accent);
 }
 
+/* Unopened-booster count next to the Boosters nav link — hidden at 0 (see app.js). */
+.ao-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--ao-accent);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
 /* Content */
 #ao-main {
     max-width: 960px;
@@ -170,6 +216,76 @@ a:hover {
     background: color-mix(in srgb, var(--ao-accent) 12%, var(--ao-surface));
     color: var(--ao-accent);
     font-weight: 600;
+}
+
+/* Set/edition filters: a real tile with the key-art filling it and the name captioned
+   over a dark gradient at the bottom (matches altered.re's own set picker) — reads far
+   better at a glance than a small inline icon. contain (not cover): our set art files are
+   small flat icons, not landscape key-art banners, so filling/cropping them would look
+   wrong — this guarantees the whole icon stays visible regardless of its native shape. */
+.ao-image-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ao-image-filter-btn {
+    position: relative;
+    width: 6.5rem;
+    height: 4.5rem;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    background-color: #eef0f6;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.ao-image-filter-btn::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 65%;
+    background: linear-gradient(to top, rgba(10, 11, 18, 0.85), rgba(10, 11, 18, 0));
+}
+
+.ao-image-filter-btn span {
+    position: absolute;
+    z-index: 1;
+    left: 0.4rem;
+    right: 0.4rem;
+    bottom: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: left;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.ao-image-filter-btn.active {
+    border-color: var(--ao-accent);
+}
+
+/* Search input, boxed off so it reads as its own control rather than blending into the
+   filter chips below it. */
+.ao-search-box {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--ao-border);
+    border-radius: 0.6rem;
+    background: var(--ao-surface);
+}
+
+.ao-search-box .form-control {
+    border: none;
+    padding: 0.25rem 0.1rem;
+}
+
+.ao-search-box .form-control:focus {
+    box-shadow: none;
 }
 
 .ao-collection-tile {
@@ -213,12 +329,11 @@ a:hover {
     object-fit: contain;
 }
 
-/* Booster-opening overlay: a booster cover tilts with the pointer, then slides
-   down on click to reveal the card sitting underneath it (ported from the
-   click-triggered CSS transition in altered-draft's PackReveal component).
-   Sized close to the viewport rather than a small fixed box, with the card's
-   own aspect ratio (~63:88, the same proportions as the rendered card art) —
-   matches how immersive the reveal feels in altered-draft. */
+/* Booster-opening overlay: a static booster cover slides down on click to reveal the
+   card sitting underneath it (ported from the click-triggered CSS transition in
+   altered-draft's PackReveal component). Sized close to the viewport rather than a
+   small fixed box, with the card's own aspect ratio (~63:88, the same proportions as
+   the rendered card art) — matches how immersive the reveal feels in altered-draft. */
 .ao-opener-backdrop {
     position: fixed;
     inset: 0;
@@ -254,12 +369,13 @@ a:hover {
 }
 
 /* The renderer draws a plain rectangular canvas/image with square corners — round it
-   to match a real printed card (and the sealed pack art, which already has rounded
-   corners baked into its own art). */
+   to match a real printed card. Booster pack art (.ao-booster-cover-img on the grid
+   tiles, .ao-opener-cover-art in the opener) is deliberately excluded everywhere —
+   its own art already has its shape baked in, at a size/silhouette that overflows or
+   doesn't fill this rounding box the way a plain card render does. */
 .ao-tilt-card altered-card,
 .ao-tilt-card img,
-.ao-collection-cover-img,
-.ao-booster-cover-img {
+.ao-collection-cover-img {
     border-radius: 1rem;
     overflow: hidden;
 }
@@ -279,10 +395,72 @@ a:hover {
     transform: translateY(130%);
 }
 
-.ao-opener-cover img,
+/* Pack art at 115% of the card's own width (not contained to match it) — ported from
+   altered-draft's CardZoom pack-cover screen. A pack's silhouette flares wider at the top
+   seal and bottom tag than the card-width body in the middle; sizing it to *fit* the
+   card's box (max-width/max-height: 100%) either crops those flares away or leaves the
+   card box peeking through past the narrower body. Instead the pack is pre-cropped so its
+   narrowest point (the body) maps to 100%, rendered wider (115% — a safety margin against
+   antialiased edge pixels as much as the flares themselves) and centered on both axes with
+   height left free to follow its own aspect ratio, so it bleeds evenly past the card's
+   edges on every side instead of being squeezed into the same box. flex-shrink: 0 stops
+   the surrounding flex centering (.ao-opener-cover/.ao-tilt-card, both flex) from
+   shrinking the image back down to fit — the img is centered directly, no extra
+   wrapper needed since it's already the sole flex child at each level. */
+.ao-opener-cover img {
+    width: 115%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    flex-shrink: 0;
+}
+
 .ao-opener-cover .ao-opener-cover-fallback {
     max-width: 100%;
     max-height: 100%;
+}
+
+/* Sealed cover's inner wrapper — same centering job as .ao-tilt-card without its pointer
+   tilt rotation or its rounded-corner clipping. The pack image already has its own baked-in
+   shape (seal, flares, tag) at 115% of the card's width; both effects fought that shape —
+   the tilt's rotation swings the overflowing flares much further than a card-sized image
+   (they sit farther from the rotation's own center), and rounding+clipping to a card-shaped
+   rectangle cut straight into art that was never meant to fill one. Tilt/holo stay on the
+   actual card, once revealed, and on its zoom in history — both sized to exactly fill their
+   box, where the effect was designed to work. */
+.ao-opener-cover-art {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Shown over the stage from the moment "Ouvrir"/the cover is tapped until the card has
+   actually rendered (see boosters.js's waitForCardReady) — the draw + render can take a
+   couple of seconds, and with nothing on screen during that wait it reads as broken rather
+   than loading. */
+.ao-opener-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ao-opener-spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    animation: ao-spin 800ms linear infinite;
+}
+
+@keyframes ao-spin {
+    to { transform: rotate(360deg); }
 }
 
 /* Prev/next arrows, flanking the stage — browse other booster types (sealed,

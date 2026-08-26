@@ -37,6 +37,7 @@
             </a>
             <a class="ao-nav-link" href="/boosters.html">
                 <i class="fa-solid fa-gift"></i><span data-i18n="nav.boosters">Boosters</span>
+                <span id="ao-nav-boosters-badge" class="ao-nav-badge" hidden>0</span>
             </a>
             <a class="ao-nav-link" href="/history.html">
                 <i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="nav.history">History</span>
@@ -60,34 +61,38 @@
         <div id="ao-collection-error" class="alert alert-danger" hidden></div>
 
         <div id="ao-collection-app" hidden>
-            <!-- Quick filters: name search + faction/set icon toggles, always visible. -->
+            <!-- Quick filters: name search + faction/set/rarity/type toggles, always visible. -->
             <div class="ao-filters mb-3">
-                <input type="text" id="ao-filter-name" class="form-control mb-2" data-i18n-placeholder="collection.searchPlaceholder" placeholder="Search by name…">
+                <div class="ao-search-box mb-3">
+                    <input type="text" id="ao-filter-name" class="form-control" data-i18n-placeholder="collection.searchPlaceholder" placeholder="Search by name…">
+                </div>
 
                 <div class="small text-muted mb-1" data-i18n="collection.faction">Faction</div>
-                <div id="ao-filter-faction" class="ao-icon-filter-row mb-2"></div>
+                <div id="ao-filter-faction" class="ao-icon-filter-row mb-3"></div>
 
                 <div class="small text-muted mb-1" data-i18n="collection.set">Set</div>
-                <div id="ao-filter-set" class="ao-icon-filter-row mb-2"></div>
+                <div id="ao-filter-set" class="ao-image-filter-row mb-3"></div>
 
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#ao-filter-advanced">
-                    <i class="fa-solid fa-sliders me-1"></i><span data-i18n="collection.advancedFilters">Advanced filters</span>
+                <div class="small text-muted mb-1" data-i18n="collection.rarity">Rarity</div>
+                <div id="ao-filter-rarity" class="ao-icon-filter-row mb-3"></div>
+
+                <div class="small text-muted mb-1" data-i18n="collection.type">Type</div>
+                <div id="ao-filter-type-row" class="ao-icon-filter-row mb-3"></div>
+
+                <button type="button" id="ao-filter-reset" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-rotate-left me-1"></i><span data-i18n="collection.reset">Reset filters</span>
                 </button>
 
-                <div class="collapse mt-3" id="ao-filter-advanced">
-                    <div class="small text-muted mb-1" data-i18n="collection.rarity">Rarity</div>
-                    <div id="ao-filter-rarity" class="ao-icon-filter-row mb-3"></div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-6 col-md-4">
-                            <label class="small text-muted mb-1" data-i18n="collection.type">Type</label>
-                            <select id="ao-filter-type" class="form-select form-select-sm" multiple size="4"></select>
-                        </div>
-                        <div class="col-6 col-md-4">
+                <!-- Variation/subtype/numeric-range filters: parked for now, not linked from
+                     anywhere (no visible toggle) — the elements stay so collection.js keeps
+                     working unchanged; re-expose by un-hiding a button that targets this again. -->
+                <div class="collapse" id="ao-filter-advanced">
+                    <div class="row g-3 mb-3 mt-3">
+                        <div class="col-6 col-md-6">
                             <label class="small text-muted mb-1" data-i18n="collection.variation">Variation</label>
                             <select id="ao-filter-variation" class="form-select form-select-sm" multiple size="4"></select>
                         </div>
-                        <div class="col-6 col-md-4">
+                        <div class="col-6 col-md-6">
                             <label class="small text-muted mb-1" data-i18n="collection.subtype">Subtype</label>
                             <select id="ao-filter-subtype" class="form-select form-select-sm" multiple size="4"></select>
                         </div>
@@ -130,10 +135,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <button type="button" id="ao-filter-reset" class="btn btn-sm btn-outline-secondary">
-                        <i class="fa-solid fa-arrow-rotate-left me-1"></i><span data-i18n="collection.reset">Reset filters</span>
-                    </button>
                 </div>
             </div>
 
@@ -142,6 +143,10 @@
             <div id="ao-collection-grid" class="row g-3"></div>
         </div>
     </main>
+
+    <footer class="ao-footer">
+        <img src="https://altered.re/uploads/editor/20260514_085456_96ed3e02.png" alt="Altered Fan Content" class="ao-footer-logo">
+    </footer>
 
     <div id="ao-opener-backdrop" class="ao-opener-backdrop" hidden>
         <div class="ao-opener-stage">

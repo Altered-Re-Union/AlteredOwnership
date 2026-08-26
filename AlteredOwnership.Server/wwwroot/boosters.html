@@ -37,6 +37,7 @@
             </a>
             <a class="ao-nav-link ao-nav-link--active" href="/boosters.html">
                 <i class="fa-solid fa-gift"></i><span data-i18n="nav.boosters">Boosters</span>
+                <span id="ao-nav-boosters-badge" class="ao-nav-badge" hidden>0</span>
             </a>
             <a class="ao-nav-link" href="/history.html">
                 <i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="nav.history">History</span>
@@ -62,11 +63,18 @@
         <div id="ao-boosters-grid" class="row g-3"></div>
     </main>
 
+    <footer class="ao-footer">
+        <img src="https://altered.re/uploads/editor/20260514_085456_96ed3e02.png" alt="Altered Fan Content" class="ao-footer-logo">
+    </footer>
+
     <div id="ao-opener-backdrop" class="ao-opener-backdrop" hidden>
         <div class="ao-opener-stage">
             <div id="ao-opener-card" class="ao-opener-card ao-tilt-card"></div>
             <div id="ao-opener-cover" class="ao-opener-cover">
-                <div id="ao-opener-rotator" class="ao-tilt-card"></div>
+                <div id="ao-opener-rotator" class="ao-opener-cover-art"></div>
+            </div>
+            <div id="ao-opener-loading" class="ao-opener-loading" hidden>
+                <span class="ao-opener-spinner" role="status" data-i18n-aria-label="boosters.loading" aria-label="Loading…"></span>
             </div>
             <button type="button" id="ao-opener-prev" class="ao-opener-nav ao-opener-nav--prev" data-i18n-aria-label="boosters.previousBooster" aria-label="Previous booster">‹</button>
             <button type="button" id="ao-opener-next" class="ao-opener-nav ao-opener-nav--next" data-i18n-aria-label="boosters.nextBooster" aria-label="Next booster">›</button>

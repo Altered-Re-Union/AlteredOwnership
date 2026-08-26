@@ -113,6 +113,23 @@
             '</div>';
     };
 
+    // Unopened-booster count next to the "Boosters" nav link, on every page — hidden at 0.
+    // Exposed on window so boosters.js can refresh it immediately after an open instead of
+    // waiting for the next full page load to catch up.
+    const boostersBadge = document.getElementById('ao-nav-boosters-badge');
+    const refreshBoostersBadge = async () => {
+        if (!boostersBadge) return;
+        try {
+            const res = await fetch('/api/boosters', { credentials: 'same-origin' });
+            if (!res.ok) return;
+            const boosters = await res.json();
+            const total = boosters.reduce((sum, b) => sum + b.quantity, 0);
+            boostersBadge.hidden = total <= 0;
+            boostersBadge.textContent = total > 99 ? '99+' : String(total);
+        } catch { /* leave the badge as-is */ }
+    };
+    window.AO_REFRESH_BOOSTERS_BADGE = refreshBoostersBadge;
+
     // On 401, try a single silent OIDC login per browser session: if the user already
     // has a Keycloak SSO session we get logged in transparently; otherwise Keycloak
     // returns login_required and we come back here to render the login button.
@@ -147,6 +164,7 @@
             // Language comes from the Keycloak account locale; fall back to English.
             applyLang(normalizeLang(me.locale) || DEFAULT_LANG);
             renderUser(me);
+            refreshBoostersBadge();
         } catch {
             renderLogin();
         } finally {

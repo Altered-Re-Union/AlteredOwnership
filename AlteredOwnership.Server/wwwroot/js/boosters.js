@@ -87,6 +87,7 @@
     const nameEl = document.getElementById('ao-opener-name');
     const qtyEl = document.getElementById('ao-opener-qty');
     const openBtn = document.getElementById('ao-opener-open-btn');
+    const openerLoadingEl = document.getElementById('ao-opener-loading');
 
     let currentIndex = -1;
 
@@ -124,14 +125,19 @@
     const closeOverlay = () => {
         backdrop.hidden = true;
         coverEl.classList.remove('ao-opening');
-        window.AO_CARD_TILT?.detach(coverEl);
         window.AO_CARD_TILT?.detach(cardEl);
         coverEl.onclick = null;
         openBtn.onclick = null;
+        openerLoadingEl.hidden = true;
         rotatorEl.innerHTML = '';
         cardEl.innerHTML = '';
         currentIndex = -1;
-        loadBoosters();
+        // boosterList is already current — every open decrements it in place and
+        // re-renders (see revealBooster) — so this just re-paints from local state. A
+        // fresh loadBoosters() fetch here briefly showed the page's "Loading…" text above
+        // the (still-visible, now stale) grid before swapping it, which visibly shifted
+        // the grid down and back up on every close.
+        renderGrid(boosterList);
     };
     backdrop?.addEventListener('click', (e) => {
         if (e.target === backdrop) closeOverlay();
@@ -149,7 +155,6 @@
         infoEl.hidden = false;
         nameEl.textContent = booster.name;
         qtyEl.textContent = '×' + booster.quantity;
-        window.AO_CARD_TILT?.attach(coverEl);
         coverEl.onclick = () => revealBooster(booster);
         openBtn.onclick = () => revealBooster(booster);
         updateNav();
@@ -173,6 +178,10 @@
     const revealBooster = async (booster) => {
         coverEl.onclick = null; // no double-open while the request is in flight
         openBtn.onclick = null;
+        // Opening (server round trip) plus rendering the drawn card can visibly take a
+        // couple of seconds — without this, a click just does nothing for that whole
+        // stretch and reads as broken rather than working.
+        openerLoadingEl.hidden = false;
         if (!csrfToken) await fetchCsrfToken();
 
         let opened;
@@ -186,6 +195,7 @@
                     body: JSON.stringify({ quantity: 1 }),
                 });
             if (!res.ok) {
+                openerLoadingEl.hidden = true;
                 errorEl.hidden = false;
                 errorEl.textContent = (await res.text()) || t('boosters.openError', 'Could not open this booster.');
                 coverEl.onclick = () => revealBooster(booster); // allow retry
@@ -194,6 +204,7 @@
             }
             opened = await res.json();
         } catch {
+            openerLoadingEl.hidden = true;
             errorEl.hidden = false;
             errorEl.textContent = t('boosters.networkError', 'Network error.');
             coverEl.onclick = () => revealBooster(booster);
@@ -206,7 +217,7 @@
             ? '<altered-card ref="' + escapeHtml(card.cardReference) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
             : '';
         if (card) await waitForCardReady(cardEl);
-        window.AO_CARD_TILT?.detach(coverEl);
+        openerLoadingEl.hidden = true;
         coverEl.classList.add('ao-opening');
         infoEl.hidden = true;
         // Every booster draws a unique — always eligible for the gold holo shine.
@@ -217,6 +228,7 @@
         booster.quantity -= 1;
         renderGrid(boosterList);
         qtyEl.textContent = '×' + booster.quantity;
+        window.AO_REFRESH_BOOSTERS_BADGE?.();
     };
 
     loadBoosters();
