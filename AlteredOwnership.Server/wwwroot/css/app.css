@@ -287,24 +287,35 @@ a:hover {
     transition: border-color 0.15s;
 }
 
+/* No scrim at all while the set filter isn't in use (nothing selected — every set already
+   passes, see applyFilters) — a dark overlay on every tile in that state read as "all
+   excluded", the opposite of what's true. Once at least one set is selected (the row gets
+   .ao-image-filter-row--filtering, toggled in imageToggleRow), unselected tiles dim to show
+   they're excluded and the selected one(s) stay bright. */
 .ao-image-filter-btn::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.62);
-    transition: background 0.2s;
+    opacity: 0;
+    background: rgba(0, 0, 0, 0.35);
+    transition: opacity 0.2s, background 0.2s;
     pointer-events: none;
 }
 
 .ao-image-filter-btn:hover::before {
-    background: rgba(0, 0, 0, 0.35);
+    opacity: 1;
+}
+
+.ao-image-filter-row--filtering .ao-image-filter-btn::before {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.62);
 }
 
 .ao-image-filter-btn.active {
     border-color: var(--ao-accent);
 }
 
-.ao-image-filter-btn.active::before {
+.ao-image-filter-row--filtering .ao-image-filter-btn.active::before {
     background: rgba(0, 0, 0, 0.08);
 }
 
@@ -318,6 +329,18 @@ a:hover {
     text-align: center;
     color: #fff;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* Per-set glyph (see css/alteredicons.css), stacked above the label — matches
+   altered.re's own .set-qf-inner layout. */
+.ao-image-filter-btn i {
+    position: relative;
+    z-index: 1;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+    margin-bottom: 2px;
 }
 
 /* Search input, boxed off so it reads as its own control rather than blending into the

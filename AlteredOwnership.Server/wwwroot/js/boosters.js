@@ -255,12 +255,20 @@
             if (cardArtEl) {
                 cardArtEl.classList.remove('ao-card-pending');
                 cardArtEl.classList.add('ao-card-revealing');
-                cardArtEl.addEventListener('animationend', () => cardArtEl.classList.remove('ao-card-revealing'), { once: true });
+                cardArtEl.addEventListener('animationend', () => {
+                    cardArtEl.classList.remove('ao-card-revealing');
+                    // Holo (shine/glare + the glow box-shadow from .ao-tilt-holo) is applied
+                    // to cardEl — the outer, always-full-size box — not to cardArtEl, which is
+                    // what's actually growing. Attaching it before the zoom finishes showed
+                    // that glow at full size the whole time, around visibly smaller art, which
+                    // read as "the card's frame" not scaling with the card itself. Waiting
+                    // until the zoom is done avoids that mismatch outright — every booster
+                    // draws a unique, so always eligible for the gold shine.
+                    window.AO_CARD_TILT?.attach(cardEl, { holo: true });
+                }, { once: true });
             }
         }, { once: true });
         infoEl.hidden = true;
-        // Every booster draws a unique — always eligible for the gold holo shine.
-        if (card) window.AO_CARD_TILT?.attach(cardEl, { holo: true });
 
         // Reflect the draw in the grid right away — it's still visible behind the dimmed
         // backdrop, and waiting until the overlay closes to update it reads as stale/wrong.

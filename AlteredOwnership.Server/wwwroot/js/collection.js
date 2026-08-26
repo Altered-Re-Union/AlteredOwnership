@@ -23,7 +23,13 @@
     ];
     // Newest set first — matches altered.re's own set-picker order exactly.
     const SET_CODES = ['FUGUE', 'EOLE', 'DUSTER', 'CYCLONE', 'BISE', 'ALIZE', 'COREKS', 'CORE'];
-    const SETS = () => SET_CODES.map((code) => [code, t('set.' + code, code)]);
+    // altered.re's own icon-font glyph slug per set (assets/font/alteredicons.css, copied
+    // in as css/alteredicons.css) — the small icon shown over each edition tile's key art.
+    const SET_ICON_SLUGS = {
+        FUGUE: 'nej', EOLE: 'roc', DUSTER: 'sdu', CYCLONE: 'sky',
+        BISE: 'wfm', ALIZE: 'tbf', COREKS: 'ks-set-icon', CORE: 'ext-coreset',
+    };
+    const SETS = () => SET_CODES.map((code) => [code, t('set.' + code, code), SET_ICON_SLUGS[code]]);
     // Single-letter labels, fixed across every locale — matches altered.re's own compact
     // rarity chips, and keeps faction+rarity fitting on one shared row. The full localized
     // name still shows up as the button's tooltip (see iconToggleRow's title support).
@@ -100,17 +106,29 @@
     // icon pill (see iconToggleRow below) — altered.re treats those two differently.
     const imageToggleRow = (container, entries, activeSet, imagePath) => {
         container.innerHTML = '';
-        entries.forEach(([code, label]) => {
+        // The dark scrim only means anything once this filter is actually restricting
+        // something — with nothing selected every set already passes (see applyFilters),
+        // so dimming every tile would read as "all excluded" when none are. This class
+        // gates that in CSS; toggled here and by the Réinitialiser button (resetBtn below).
+        const syncFiltering = () => container.classList.toggle('ao-image-filter-row--filtering', activeSet.size > 0);
+        entries.forEach(([code, label, iconSlug]) => {
             const btn = document.createElement('button');
             btn.className = 'ao-image-filter-btn';
             const art = imagePath(code);
             if (art) btn.style.backgroundImage = 'url(\'' + art + '\')';
+            if (iconSlug) {
+                const iconEl = document.createElement('i');
+                iconEl.className = 'fak fa-' + iconSlug;
+                btn.appendChild(iconEl);
+            }
             const labelEl = document.createElement('span');
             labelEl.textContent = label;
             btn.appendChild(labelEl);
             wireToggle(btn, code, activeSet);
+            btn.addEventListener('click', syncFiltering);
             container.appendChild(btn);
         });
+        syncFiltering();
     };
 
     const multiSelectValues = (select) => Array.from(select.selectedOptions).map((o) => o.value);
@@ -232,6 +250,7 @@
         activeTypes.clear();
         factionRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         setRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
+        setRowEl.classList.remove('ao-image-filter-row--filtering');
         rarityRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         typeRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
         variationSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
