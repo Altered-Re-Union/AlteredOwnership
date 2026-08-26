@@ -190,7 +190,7 @@ a:hover {
    Sizing/radii/scrim values below are ported from altered.re's own card-search filters
    (plugins/core-altered-cards assets.css .filter-toggle / .set-qf-btn), not guessed. */
 .ao-filters {
-    padding: 1rem;
+    padding: 0.75rem;
     border: 1px solid var(--ao-border);
     border-radius: 0.5rem;
     background: var(--ao-surface);
@@ -199,7 +199,22 @@ a:hover {
 .ao-icon-filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.35rem;
+}
+
+/* Faction + rarity share one row (altered.re groups them the same way), separated by a
+   thin rule rather than the row's own gap so the two groups still read as distinct. */
+.ao-filter-row-combo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ao-filter-sep {
+    align-self: stretch;
+    width: 1px;
+    background: var(--ao-border);
 }
 
 .ao-icon-filter-btn {
@@ -322,12 +337,15 @@ a:hover {
     box-shadow: none;
 }
 
+/* No border/background/padding of its own — the card's own rendered art (rounded
+   corners baked in, see .ao-collection-cover-img below) already reads as a tile; wrapping
+   it in another bordered white box just doubled the framing. */
 .ao-collection-tile {
-    border: 1px solid var(--ao-border);
-    border-radius: 0.5rem;
-    background: var(--ao-surface);
-    padding: 0.5rem;
-    text-align: center;
+    position: relative;
+    display: block;
+    border: none;
+    background: transparent;
+    padding: 0;
     cursor: pointer;
 }
 
@@ -337,9 +355,28 @@ a:hover {
     object-fit: contain;
 }
 
-.ao-collection-qty {
-    position: relative;
-    top: -0.25rem;
+/* Quantity badge, overlaid on the card art itself instead of a separate "×N" line below
+   it (which sat in the tile's own white background/border chrome, now removed). */
+.ao-collection-qty-badge {
+    position: absolute;
+    z-index: 1;
+    left: 0.4rem;
+    bottom: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(15, 17, 26, 0.75);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.ao-collection-qty-badge img {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
 }
 
 /* Booster tiles */
@@ -423,6 +460,12 @@ a:hover {
     cursor: pointer;
     transform: translateY(0);
     transition: transform 500ms ease-in;
+    /* Without this, rotatorEl's own rotateY/rotateX (a grandchild of .ao-opener-stage,
+       which sets perspective) gets flattened into this element's 2D plane before it ever
+       reaches that perspective — the tilt still "moved" the numbers but didn't visually
+       read as a 3D tilt at all. Matches .ao-tilt-card, which doesn't need this only
+       because it IS a direct child of .ao-opener-stage. */
+    transform-style: preserve-3d;
 }
 
 /* Viewport-relative (not a % of the cover's own box): the pack art bleeds past the cover's

@@ -125,7 +125,7 @@
     const closeOverlay = () => {
         backdrop.hidden = true;
         coverEl.classList.remove('ao-opening');
-        window.AO_CARD_TILT?.detach(coverEl);
+        window.AO_CARD_TILT?.detach(rotatorEl);
         window.AO_CARD_TILT?.detach(cardEl);
         coverEl.onclick = null;
         openBtn.onclick = null;
@@ -157,11 +157,16 @@
         nameEl.textContent = booster.name;
         qtyEl.textContent = '×' + booster.quantity;
         // Pointer/gyro tilt only (no holo shine) on the sealed pack — matches altered-draft's
-        // plain-rarity treatment. Attached to coverEl (the full click box), not rotatorEl:
-        // --ao-tilt-x/-y are written here and picked up by rotatorEl's own rotate transform
-        // through CSS custom-property inheritance, keeping that transform free for coverEl's
-        // own translateY slide-away animation instead of fighting over one `transform`.
-        window.AO_CARD_TILT?.attach(coverEl);
+        // plain-rarity treatment. Attached directly to rotatorEl, exactly like cardEl: the
+        // same element both tracks the pointer and owns the rotate transform, no inherited
+        // CSS vars involved. (An earlier version attached this to coverEl instead, relying on
+        // --ao-tilt-x/-y inheriting down to rotatorEl, specifically to dodge fighting coverEl's
+        // own translateY slide-away over one `transform` — but rotatorEl is a grandchild of
+        // .ao-opener-stage [which sets perspective] through coverEl, and coverEl was missing
+        // transform-style: preserve-3d, so rotatorEl's rotation never actually received that
+        // perspective and looked flat/broken. Now that's fixed on coverEl regardless, this
+        // goes back to the simple direct pattern instead of relying on the inheritance trick.)
+        window.AO_CARD_TILT?.attach(rotatorEl);
         coverEl.onclick = () => revealBooster(booster);
         openBtn.onclick = () => revealBooster(booster);
         updateNav();
@@ -225,6 +230,7 @@
             : '';
         if (card) await waitForCardReady(cardEl);
         openerLoadingEl.hidden = true;
+        window.AO_CARD_TILT?.detach(rotatorEl);
         coverEl.classList.add('ao-opening');
         // The slide-down only moves the cover off screen visually — the pack art (which
         // bleeds past the cover's own box, see .ao-opener-cover img) can otherwise still

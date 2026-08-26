@@ -23,8 +23,12 @@
     ];
     const SET_CODES = ['ALIZE', 'BISE', 'CORE', 'COREKS', 'CYCLONE', 'DUSTER', 'EOLE', 'FUGUE'];
     const SETS = () => SET_CODES.map((code) => [code, t('set.' + code, code)]);
+    // Single-letter labels, fixed across every locale — matches altered.re's own compact
+    // rarity chips, and keeps faction+rarity fitting on one shared row. The full localized
+    // name still shows up as the button's tooltip (see iconToggleRow's title support).
     const RARITY_CODES = ['COMMON', 'RARE', 'UNIQUE', 'EXALTED'];
-    const RARITIES = () => RARITY_CODES.map((code) => [code, t('rarity.' + code, code)]);
+    const RARITY_LETTERS = { COMMON: 'C', RARE: 'R', UNIQUE: 'U', EXALTED: 'E' };
+    const RARITIES = () => RARITY_CODES.map((code) => [code, RARITY_LETTERS[code], t('rarity.' + code, code)]);
     const RARITY_ICONS = {
         COMMON: '/img/rarities/common.png',
         RARE: '/img/rarities/rare.png',
@@ -79,9 +83,10 @@
     // altered.re's own rarity chips.
     const iconToggleRow = (container, entries, activeSet, iconPath, compact) => {
         container.innerHTML = '';
-        entries.forEach(([code, label]) => {
+        entries.forEach(([code, label, title]) => {
             const btn = document.createElement('button');
             btn.className = 'ao-icon-filter-btn' + (compact ? ' ao-icon-filter-btn--compact' : '');
+            if (title) btn.title = title;
             btn.innerHTML = (iconPath(code) ? '<img src="' + iconPath(code) + '" alt="">' : '') +
                 '<span>' + escapeHtml(label) + '</span>';
             wireToggle(btn, code, activeSet);
@@ -173,7 +178,7 @@
             tile.title = card.name || card.reference;
             tile.innerHTML =
                 cardThumb(card) +
-                '<div class="text-muted small ao-collection-qty">×' + card.quantity + '</div>';
+                '<span class="ao-collection-qty-badge"><img src="/img/card-back.webp" alt="">×' + card.quantity + '</span>';
             tile.addEventListener('click', () => openZoom(card));
             col.appendChild(tile);
             gridEl.appendChild(col);

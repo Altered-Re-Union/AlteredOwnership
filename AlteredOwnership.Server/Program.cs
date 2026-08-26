@@ -119,8 +119,10 @@ app.Use(async (ctx, next) =>
         // in the history page's event previews) is served from Altered's S3 bucket.
         // cdn.alteredcore.org is the Altered-Card-Renderer's own image/data source,
         // used to draw unique cards that have no catalog entry (history + boosters).
-        // altered.re hosts the "Altered Fan Content" footer credit logo.
-        "img-src 'self' data: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org https://altered.re; " +
+        // altered.re hosts the "Altered Fan Content" footer credit logo. blob: is the
+        // renderer drawing a card to an offscreen canvas and displaying it via
+        // canvas.toBlob()/createObjectURL() rather than a plain <img src>.
+        "img-src 'self' data: blob: https://altered-dev.s3.eu-west-3.amazonaws.com https://cdn.alteredcore.org https://altered.re; " +
         // cdn.alteredcore.org also serves the renderer's own fonts (HapticPro, alteredicons, ...);
         // data: covers its bundled Font Awesome Kit icon font, embedded as a base64 woff2.
         "font-src 'self' data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.alteredcore.org; " +
