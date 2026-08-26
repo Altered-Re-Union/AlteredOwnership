@@ -125,6 +125,7 @@
     const closeOverlay = () => {
         backdrop.hidden = true;
         coverEl.classList.remove('ao-opening');
+        window.AO_CARD_TILT?.detach(coverEl);
         window.AO_CARD_TILT?.detach(cardEl);
         coverEl.onclick = null;
         openBtn.onclick = null;
@@ -155,6 +156,12 @@
         infoEl.hidden = false;
         nameEl.textContent = booster.name;
         qtyEl.textContent = '×' + booster.quantity;
+        // Pointer/gyro tilt only (no holo shine) on the sealed pack — matches altered-draft's
+        // plain-rarity treatment. Attached to coverEl (the full click box), not rotatorEl:
+        // --ao-tilt-x/-y are written here and picked up by rotatorEl's own rotate transform
+        // through CSS custom-property inheritance, keeping that transform free for coverEl's
+        // own translateY slide-away animation instead of fighting over one `transform`.
+        window.AO_CARD_TILT?.attach(coverEl);
         coverEl.onclick = () => revealBooster(booster);
         openBtn.onclick = () => revealBooster(booster);
         updateNav();
@@ -219,6 +226,15 @@
         if (card) await waitForCardReady(cardEl);
         openerLoadingEl.hidden = true;
         coverEl.classList.add('ao-opening');
+        // The slide-down only moves the cover off screen visually — the pack art (which
+        // bleeds past the cover's own box, see .ao-opener-cover img) can otherwise still
+        // peek back into view, e.g. behind the revealed card on a short viewport. Once the
+        // slide finishes, drop it for real. Guarded on the class still being set: if the
+        // player has since browsed to another booster, showSealed() already replaced
+        // rotatorEl's content and removed this class — this stale event must not wipe that.
+        coverEl.addEventListener('transitionend', () => {
+            if (coverEl.classList.contains('ao-opening')) rotatorEl.innerHTML = '';
+        }, { once: true });
         infoEl.hidden = true;
         // Every booster draws a unique — always eligible for the gold holo shine.
         if (card) window.AO_CARD_TILT?.attach(cardEl, { holo: true });

@@ -186,7 +186,16 @@ a:hover {
     max-width: 960px;
 }
 
-/* Collection page: icon filter rows (faction/set/rarity) and card grid. */
+/* Collection page: filter panel + its rows (faction/set/rarity/type) and card grid.
+   Sizing/radii/scrim values below are ported from altered.re's own card-search filters
+   (plugins/core-altered-cards assets.css .filter-toggle / .set-qf-btn), not guessed. */
+.ao-filters {
+    padding: 1rem;
+    border: 1px solid var(--ao-border);
+    border-radius: 0.5rem;
+    background: var(--ao-surface);
+}
+
 .ao-icon-filter-row {
     display: flex;
     flex-wrap: wrap;
@@ -196,12 +205,13 @@ a:hover {
 .ao-icon-filter-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.6rem;
+    gap: 5px;
+    padding: 4px 10px;
     border: 1px solid var(--ao-border);
-    border-radius: 999px;
-    background: var(--ao-surface);
-    font-size: 0.85rem;
+    border-radius: 6px;
+    background: transparent;
+    color: #5a6072;
+    font-size: 0.82rem;
     cursor: pointer;
 }
 
@@ -212,17 +222,28 @@ a:hover {
 }
 
 .ao-icon-filter-btn.active {
+    background: var(--ao-accent);
     border-color: var(--ao-accent);
-    background: color-mix(in srgb, var(--ao-accent) 12%, var(--ao-surface));
-    color: var(--ao-accent);
-    font-weight: 600;
+    color: #fff;
 }
 
-/* Set/edition filters: a real tile with the key-art filling it and the name captioned
-   over a dark gradient at the bottom (matches altered.re's own set picker) — reads far
-   better at a glance than a small inline icon. contain (not cover): our set art files are
-   small flat icons, not landscape key-art banners, so filling/cropping them would look
-   wrong — this guarantees the whole icon stays visible regardless of its native shape. */
+/* Rarity: same pill, smaller icon/padding, bolder text — altered.re's compact variant. */
+.ao-icon-filter-btn--compact {
+    padding: 4px 8px;
+    font-weight: 700;
+}
+
+.ao-icon-filter-btn--compact img {
+    width: 15px;
+    height: 15px;
+}
+
+/* Set/edition filters: a tile with the key-art as the button's own background and the name
+   captioned over a full-tile dark scrim that thins out on hover/active — ported from
+   altered.re's own set-quick-filter buttons (same 82×60 size, radius, scrim opacities).
+   contain (not their cover): our set art files are small flat icons, not the landscape
+   key-art crop altered.re uses there, so filling/cropping them would look wrong — this
+   guarantees the whole icon stays visible regardless of its native shape. */
 .ao-image-filter-row {
     display: flex;
     flex-wrap: wrap;
@@ -231,43 +252,56 @@ a:hover {
 
 .ao-image-filter-btn {
     position: relative;
-    width: 6.5rem;
-    height: 4.5rem;
+    display: flex;
+    overflow: hidden;
+    width: 82px;
+    height: 60px;
+    flex: 0 0 82px;
     padding: 0;
     border: 2px solid transparent;
-    border-radius: 0.5rem;
-    overflow: hidden;
+    border-radius: 8px;
     cursor: pointer;
-    background-color: #eef0f6;
+    background-color: #cfd3e0;
     background-repeat: no-repeat;
     background-position: center;
     background-size: contain;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: border-color 0.15s;
 }
 
-.ao-image-filter-btn::after {
+.ao-image-filter-btn::before {
     content: '';
     position: absolute;
-    inset: auto 0 0 0;
-    height: 65%;
-    background: linear-gradient(to top, rgba(10, 11, 18, 0.85), rgba(10, 11, 18, 0));
+    inset: 0;
+    background: rgba(0, 0, 0, 0.62);
+    transition: background 0.2s;
+    pointer-events: none;
 }
 
-.ao-image-filter-btn span {
-    position: absolute;
-    z-index: 1;
-    left: 0.4rem;
-    right: 0.4rem;
-    bottom: 0.3rem;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1.15;
-    text-align: left;
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+.ao-image-filter-btn:hover::before {
+    background: rgba(0, 0, 0, 0.35);
 }
 
 .ao-image-filter-btn.active {
     border-color: var(--ao-accent);
+}
+
+.ao-image-filter-btn.active::before {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.ao-image-filter-btn span {
+    position: relative;
+    z-index: 1;
+    padding: 0 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
 /* Search input, boxed off so it reads as its own control rather than blending into the
@@ -391,28 +425,26 @@ a:hover {
     transition: transform 500ms ease-in;
 }
 
+/* Viewport-relative (not a % of the cover's own box): the pack art bleeds past the cover's
+   box on every side (see .ao-opener-cover img above, 115% width/free height), so a transform
+   sized off the cover's own height was no longer enough to carry the taller/wider art fully
+   off screen — part of it stayed visible at the bottom after "opening". 160vh clears the
+   viewport regardless of how much the art overflows its box. */
 .ao-opener-cover.ao-opening {
-    transform: translateY(130%);
+    transform: translateY(160vh);
 }
 
-/* Pack art at 115% of the card's own width (not contained to match it) — ported from
-   altered-draft's CardZoom pack-cover screen. A pack's silhouette flares wider at the top
-   seal and bottom tag than the card-width body in the middle; sizing it to *fit* the
-   card's box (max-width/max-height: 100%) either crops those flares away or leaves the
-   card box peeking through past the narrower body. Instead the pack is pre-cropped so its
-   narrowest point (the body) maps to 100%, rendered wider (115% — a safety margin against
-   antialiased edge pixels as much as the flares themselves) and centered on both axes with
-   height left free to follow its own aspect ratio, so it bleeds evenly past the card's
-   edges on every side instead of being squeezed into the same box. flex-shrink: 0 stops
-   the surrounding flex centering (.ao-opener-cover/.ao-tilt-card, both flex) from
-   shrinking the image back down to fit — the img is centered directly, no extra
-   wrapper needed since it's already the sole flex child at each level. */
+/* Pack art contained within the card's own box (never bigger than it), preserving its
+   native aspect ratio. altered-draft renders its pack art at 115% of the card's width
+   with free height, bleeding past the card's edges — that only works because their asset
+   is pre-cropped close to the card's own proportions. Our actual pack art is much taller
+   per unit of width (measured: 480×836px, ratio 1.74, vs. the card's 63:88 ≈ 1.40): at
+   115% width its free height ballooned past the viewport on both ends, pushing the
+   Ouvrir button off screen entirely. Containing it is the robust fix regardless of any
+   given booster's actual art proportions. */
 .ao-opener-cover img {
-    width: 115%;
-    max-width: none;
-    height: auto;
-    max-height: none;
-    flex-shrink: 0;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .ao-opener-cover .ao-opener-cover-fallback {
@@ -420,20 +452,18 @@ a:hover {
     max-height: 100%;
 }
 
-/* Sealed cover's inner wrapper — same centering job as .ao-tilt-card without its pointer
-   tilt rotation or its rounded-corner clipping. The pack image already has its own baked-in
-   shape (seal, flares, tag) at 115% of the card's width; both effects fought that shape —
-   the tilt's rotation swings the overflowing flares much further than a card-sized image
-   (they sit farther from the rotation's own center), and rounding+clipping to a card-shaped
-   rectangle cut straight into art that was never meant to fill one. Tilt/holo stay on the
-   actual card, once revealed, and on its zoom in history — both sized to exactly fill their
-   box, where the effect was designed to work. */
+/* Sealed cover's inner wrapper — centers the pack art without the rounded-corner clipping
+   .ao-tilt-card applies for actual card renders (see the note above .ao-tilt-card img):
+   the pack's own art already has its shape baked in, not a plain rectangle to round. */
 .ao-opener-cover-art {
     width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    transform: rotateY(var(--ao-tilt-y, 0deg)) rotateX(var(--ao-tilt-x, 0deg));
+    transition: transform 400ms ease-out;
+    transform-style: preserve-3d;
 }
 
 /* Shown over the stage from the moment "Ouvrir"/the cover is tapped until the card has

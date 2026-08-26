@@ -16,17 +16,21 @@
     const prettify = (s) => String(s).replace(/_/g, ' ').toLowerCase()
         .replace(/\b\w/g, (c) => c.toUpperCase());
 
+    // Faction names are proper nouns, identical in every locale — no i18n entry needed.
     const FACTIONS = [
         ['AX', 'Axiom'], ['BR', 'Bravos'], ['LY', 'Lyra'],
         ['MU', 'Muna'], ['OR', 'Ordis'], ['YZ', 'Yzmir'],
     ];
-    const SETS = [
-        ['ALIZE', 'Trial by Frost'], ['BISE', 'Whispers from the Maze'],
-        ['CORE', 'Beyond the Gates'], ['COREKS', 'Beyond the Gates (KS)'],
-        ['CYCLONE', 'Skybound Odyssey'], ['DUSTER', 'Seeds of Unity'],
-        ['EOLE', 'Roots of Corruption'], ['FUGUE', 'Neverending Journey'],
-    ];
-    const RARITIES = [['COMMON', 'Common'], ['RARE', 'Rare'], ['UNIQUE', 'Unique'], ['EXALTED', 'Exalted']];
+    const SET_CODES = ['ALIZE', 'BISE', 'CORE', 'COREKS', 'CYCLONE', 'DUSTER', 'EOLE', 'FUGUE'];
+    const SETS = () => SET_CODES.map((code) => [code, t('set.' + code, code)]);
+    const RARITY_CODES = ['COMMON', 'RARE', 'UNIQUE', 'EXALTED'];
+    const RARITIES = () => RARITY_CODES.map((code) => [code, t('rarity.' + code, code)]);
+    const RARITY_ICONS = {
+        COMMON: '/img/rarities/common.png',
+        RARE: '/img/rarities/rare.png',
+        UNIQUE: '/img/rarities/unique.png',
+        EXALTED: '/img/rarities/exalted.png',
+    };
 
     const anonEl = document.getElementById('ao-collection-anon');
     const appEl = document.getElementById('ao-collection-app');
@@ -70,12 +74,14 @@
         });
     };
 
-    // Rarity/type: no art to show for these (no gem/type icon set), so a plain text pill.
-    const iconToggleRow = (container, entries, activeSet, iconPath) => {
+    // Faction/type: plain icon+text pill (type has no icon set, so just text). Rarity uses
+    // the compact variant — a small gem icon, tighter padding, bolder text — matching
+    // altered.re's own rarity chips.
+    const iconToggleRow = (container, entries, activeSet, iconPath, compact) => {
         container.innerHTML = '';
         entries.forEach(([code, label]) => {
             const btn = document.createElement('button');
-            btn.className = 'ao-icon-filter-btn';
+            btn.className = 'ao-icon-filter-btn' + (compact ? ' ao-icon-filter-btn--compact' : '');
             btn.innerHTML = (iconPath(code) ? '<img src="' + iconPath(code) + '" alt="">' : '') +
                 '<span>' + escapeHtml(label) + '</span>';
             wireToggle(btn, code, activeSet);
@@ -126,7 +132,7 @@
             if (c.variation) variations.add(c.variation);
             (c.subTypes || []).forEach((s) => subtypes.add(s));
         });
-        iconToggleRow(typeRowEl, Array.from(types).sort().map((v) => [v, prettify(v)]), activeTypes, () => null);
+        iconToggleRow(typeRowEl, Array.from(types).sort().map((v) => [v, t('cardType.' + v, prettify(v))]), activeTypes, () => null);
         populateSelect(variationSelect, Array.from(variations).sort());
         populateSelect(subtypeSelect, Array.from(subtypes).sort());
     };
@@ -246,7 +252,7 @@
             : (card.imagePath
                 ? '<img src="' + escapeHtml(card.imagePath) + '" alt="' + escapeHtml(card.name || '') + '" style="max-width:100%;max-height:100%;">'
                 : '<div class="ao-opener-cover-fallback"><i class="fa-solid fa-image fa-3x"></i></div>');
-        window.AO_CARD_TILT?.attach(zoomContent);
+        window.AO_CARD_TILT?.attach(zoomContent, { holo: card.isUnique });
         zoomBackdrop.hidden = false;
     };
 
@@ -268,8 +274,8 @@
             iconToggleRow(factionRowEl, FACTIONS, activeFactions, (code) => '/img/factions/' + code + '.webp');
             // FUGUE has no official set logo yet (see BoosterCatalog.cs) — no art file for it,
             // so that one tile falls back to a plain background with just its label.
-            imageToggleRow(setRowEl, SETS, activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
-            iconToggleRow(rarityRowEl, RARITIES, activeRarities, () => null);
+            imageToggleRow(setRowEl, SETS(), activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
+            iconToggleRow(rarityRowEl, RARITIES(), activeRarities, (code) => RARITY_ICONS[code], true);
             refreshDynamicFacets();
             applyFilters();
         } catch {
