@@ -28,6 +28,9 @@
         document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
             el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
         });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+            el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+        });
     };
 
     // Language is driven by the Keycloak `locale` claim; there is no on-site override.

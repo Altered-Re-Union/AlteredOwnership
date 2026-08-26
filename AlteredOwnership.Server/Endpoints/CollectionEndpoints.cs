@@ -13,7 +13,7 @@ namespace AlteredOwnership.Server.Endpoints;
 // One owned card with its catalog metadata resolved to the requested locale (all card
 // fields null when the card isn't catalogued yet).
 public record CardCollectionItemResponse(
-    string Reference, int Quantity,
+    string Reference, int Quantity, bool IsUnique,
     string? Name, string? ImagePath,
     string? Set, string? Faction, string? Rarity, string? CardType,
     string? Variation, IReadOnlyList<string>? SubTypes,

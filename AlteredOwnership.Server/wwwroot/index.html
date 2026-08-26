@@ -30,43 +30,130 @@
         </div>
     </header>
 
-    <main id="ao-main" class="container py-4">
-        <h1 class="h3 mb-4" data-i18n="landing.title">Altered Ownership</h1>
+    <nav class="ao-nav">
+        <div class="ao-nav-inner">
+            <a class="ao-nav-link ao-nav-link--active" href="/">
+                <i class="fa-solid fa-layer-group"></i><span data-i18n="nav.collection">Collection</span>
+            </a>
+            <a class="ao-nav-link" href="/boosters.html">
+                <i class="fa-solid fa-gift"></i><span data-i18n="nav.boosters">Boosters</span>
+            </a>
+            <a class="ao-nav-link" href="/history.html">
+                <i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="nav.history">History</span>
+            </a>
+            <a class="ao-nav-link" href="/import.html">
+                <i class="fa-solid fa-file-import"></i><span data-i18n="nav.import">Import</span>
+            </a>
+        </div>
+    </nav>
 
-        <div class="row g-3">
-            <div class="col-12 col-md-4">
-                <a class="btn btn-outline-primary w-100 h-100 py-4 d-flex flex-column align-items-center justify-content-center gap-2"
-                   href="https://www.altered.re/pages/cards?tab=ownership">
-                    <i class="fa-solid fa-layer-group fa-2x"></i>
-                    <span data-i18n="landing.viewCollection">See my collection</span>
-                </a>
+    <main id="ao-main" class="container py-4">
+        <h1 class="h3 mb-4" data-i18n="collection.title">My collection</h1>
+
+        <div id="ao-collection-anon" hidden>
+            <a href="/api/auth/login?returnUrl=/" class="btn btn-primary">
+                <i class="fa-solid fa-user me-1"></i><span data-i18n="import.loginRegister">Log in / Sign up</span>
+            </a>
+        </div>
+
+        <div id="ao-collection-loading" class="text-muted" data-i18n="collection.loading">Loading…</div>
+        <div id="ao-collection-error" class="alert alert-danger" hidden></div>
+
+        <div id="ao-collection-app" hidden>
+            <!-- Quick filters: name search + faction/set icon toggles, always visible. -->
+            <div class="ao-filters mb-3">
+                <input type="text" id="ao-filter-name" class="form-control mb-2" data-i18n-placeholder="collection.searchPlaceholder" placeholder="Search by name…">
+
+                <div class="small text-muted mb-1" data-i18n="collection.faction">Faction</div>
+                <div id="ao-filter-faction" class="ao-icon-filter-row mb-2"></div>
+
+                <div class="small text-muted mb-1" data-i18n="collection.set">Set</div>
+                <div id="ao-filter-set" class="ao-icon-filter-row mb-2"></div>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#ao-filter-advanced">
+                    <i class="fa-solid fa-sliders me-1"></i><span data-i18n="collection.advancedFilters">Advanced filters</span>
+                </button>
+
+                <div class="collapse mt-3" id="ao-filter-advanced">
+                    <div class="small text-muted mb-1" data-i18n="collection.rarity">Rarity</div>
+                    <div id="ao-filter-rarity" class="ao-icon-filter-row mb-3"></div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-4">
+                            <label class="small text-muted mb-1" data-i18n="collection.type">Type</label>
+                            <select id="ao-filter-type" class="form-select form-select-sm" multiple size="4"></select>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label class="small text-muted mb-1" data-i18n="collection.variation">Variation</label>
+                            <select id="ao-filter-variation" class="form-select form-select-sm" multiple size="4"></select>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label class="small text-muted mb-1" data-i18n="collection.subtype">Subtype</label>
+                            <select id="ao-filter-subtype" class="form-select form-select-sm" multiple size="4"></select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-2">
+                            <label class="small text-muted mb-1" data-i18n="collection.handCost">Hand cost</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" min="0" id="ao-filter-maincost-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
+                                <input type="number" min="0" id="ao-filter-maincost-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="small text-muted mb-1" data-i18n="collection.reserveCost">Reserve cost</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" min="0" id="ao-filter-recallcost-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
+                                <input type="number" min="0" id="ao-filter-recallcost-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="small text-muted mb-1" data-i18n="collection.forestPower">Forest power</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" min="0" id="ao-filter-forest-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
+                                <input type="number" min="0" id="ao-filter-forest-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="small text-muted mb-1" data-i18n="collection.mountainPower">Mountain power</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" min="0" id="ao-filter-mountain-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
+                                <input type="number" min="0" id="ao-filter-mountain-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="small text-muted mb-1" data-i18n="collection.oceanPower">Ocean power</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" min="0" id="ao-filter-ocean-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
+                                <input type="number" min="0" id="ao-filter-ocean-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" id="ao-filter-reset" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa-solid fa-arrow-rotate-left me-1"></i><span data-i18n="collection.reset">Reset filters</span>
+                    </button>
+                </div>
             </div>
-            <div class="col-12 col-md-4">
-                <a class="btn btn-outline-primary w-100 h-100 py-4 d-flex flex-column align-items-center justify-content-center gap-2"
-                   href="/history.html">
-                    <i class="fa-solid fa-clock-rotate-left fa-2x"></i>
-                    <span data-i18n="landing.history">History</span>
-                </a>
-            </div>
-            <div class="col-12 col-md-4">
-                <a class="btn btn-outline-primary w-100 h-100 py-4 d-flex flex-column align-items-center justify-content-center gap-2"
-                   href="/import.html">
-                    <i class="fa-solid fa-file-import fa-2x"></i>
-                    <span data-i18n="landing.import">Import my Equinox collection</span>
-                </a>
-            </div>
-            <div class="col-12 col-md-4">
-                <a class="btn btn-outline-primary w-100 h-100 py-4 d-flex flex-column align-items-center justify-content-center gap-2"
-                   href="/boosters.html">
-                    <i class="fa-solid fa-gift fa-2x"></i>
-                    <span data-i18n="landing.myBoosters">My boosters</span>
-                </a>
-            </div>
+
+            <div id="ao-collection-count" class="text-muted small mb-2"></div>
+            <div id="ao-collection-empty" class="text-muted" hidden data-i18n="collection.empty">No cards match these filters.</div>
+            <div id="ao-collection-grid" class="row g-3"></div>
         </div>
     </main>
 
+    <div id="ao-opener-backdrop" class="ao-opener-backdrop" hidden>
+        <div class="ao-opener-stage">
+            <div id="ao-opener-card" class="ao-opener-card ao-tilt-card"></div>
+        </div>
+    </div>
+
     <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/card-renderer-loader.js"></script>
     <script src="/js/i18n.js" defer></script>
     <script src="/js/app.js" defer></script>
+    <script src="/js/card-tilt.js" defer></script>
+    <script src="/js/collection.js" defer></script>
 </body>
 </html>

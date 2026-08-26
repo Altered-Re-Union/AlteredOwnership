@@ -1,0 +1,249 @@
+(() => {
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    const t = (key, fallback) => {
+        const dict = window.AO_I18N || {};
+        const lang = document.documentElement.lang || 'en';
+        return (dict[lang] && dict[lang][key]) || (dict.en && dict.en[key]) || fallback;
+    };
+
+    const locale = () => document.documentElement.lang || 'en';
+
+    // Prettifies a raw catalog code (e.g. "CHARACTER", "FOIL_ART") for display —
+    // these come straight from the Altered API with no per-language label of their own.
+    const prettify = (s) => String(s).replace(/_/g, ' ').toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const FACTIONS = [
+        ['AX', 'Axiom'], ['BR', 'Bravos'], ['LY', 'Lyra'],
+        ['MU', 'Muna'], ['OR', 'Ordis'], ['YZ', 'Yzmir'],
+    ];
+    const SETS = [
+        ['ALIZE', 'Trial by Frost'], ['BISE', 'Whispers from the Maze'],
+        ['CORE', 'Beyond the Gates'], ['COREKS', 'Beyond the Gates (KS)'],
+        ['CYCLONE', 'Skybound Odyssey'], ['DUSTER', 'Seeds of Unity'],
+        ['EOLE', 'Roots of Corruption'], ['FUGUE', 'Neverending Journey'],
+    ];
+    const RARITIES = [['COMMON', 'Common'], ['RARE', 'Rare'], ['UNIQUE', 'Unique'], ['EXALTED', 'Exalted']];
+
+    const anonEl = document.getElementById('ao-collection-anon');
+    const appEl = document.getElementById('ao-collection-app');
+    const loadingEl = document.getElementById('ao-collection-loading');
+    const emptyEl = document.getElementById('ao-collection-empty');
+    const errorEl = document.getElementById('ao-collection-error');
+    const gridEl = document.getElementById('ao-collection-grid');
+    const countEl = document.getElementById('ao-collection-count');
+
+    const nameInput = document.getElementById('ao-filter-name');
+    const factionRowEl = document.getElementById('ao-filter-faction');
+    const setRowEl = document.getElementById('ao-filter-set');
+    const rarityRowEl = document.getElementById('ao-filter-rarity');
+    const typeSelect = document.getElementById('ao-filter-type');
+    const variationSelect = document.getElementById('ao-filter-variation');
+    const subtypeSelect = document.getElementById('ao-filter-subtype');
+    const resetBtn = document.getElementById('ao-filter-reset');
+
+    const numericIds = ['maincost', 'recallcost', 'forest', 'mountain', 'ocean'];
+    const numericInputs = {};
+    numericIds.forEach((id) => {
+        numericInputs[id] = {
+            min: document.getElementById('ao-filter-' + id + '-min'),
+            max: document.getElementById('ao-filter-' + id + '-max'),
+        };
+    });
+
+    let allCards = [];
+    const activeFactions = new Set();
+    const activeSets = new Set();
+    const activeRarities = new Set();
+
+    const iconToggleRow = (container, entries, activeSet, iconPath) => {
+        container.innerHTML = '';
+        entries.forEach(([code, label]) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ao-icon-filter-btn';
+            btn.innerHTML = (iconPath(code) ? '<img src="' + iconPath(code) + '" alt="">' : '') +
+                '<span>' + escapeHtml(label) + '</span>';
+            btn.addEventListener('click', () => {
+                if (activeSet.has(code)) activeSet.delete(code); else activeSet.add(code);
+                btn.classList.toggle('active');
+                applyFilters();
+            });
+            container.appendChild(btn);
+        });
+    };
+
+    const multiSelectValues = (select) => Array.from(select.selectedOptions).map((o) => o.value);
+
+    const populateSelect = (select, values) => {
+        const previous = new Set(multiSelectValues(select));
+        select.innerHTML = '';
+        values.forEach((v) => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = prettify(v);
+            if (previous.has(v)) opt.selected = true;
+            select.appendChild(opt);
+        });
+    };
+
+    // Type/variation/subtype options aren't a fixed known list — derive them from
+    // whatever the user actually owns instead of guessing the Altered API's vocabulary.
+    const refreshDynamicFacets = () => {
+        const types = new Set();
+        const variations = new Set();
+        const subtypes = new Set();
+        allCards.forEach((c) => {
+            if (c.cardType) types.add(c.cardType);
+            if (c.variation) variations.add(c.variation);
+            (c.subTypes || []).forEach((s) => subtypes.add(s));
+        });
+        populateSelect(typeSelect, Array.from(types).sort());
+        populateSelect(variationSelect, Array.from(variations).sort());
+        populateSelect(subtypeSelect, Array.from(subtypes).sort());
+    };
+
+    const numericFilter = (id) => {
+        const min = numericInputs[id].min.value;
+        const max = numericInputs[id].max.value;
+        return { min: min === '' ? null : Number(min), max: max === '' ? null : Number(max) };
+    };
+    const passesNumeric = (value, filter) => {
+        if (filter.min === null && filter.max === null) return true;
+        if (value === null || value === undefined) return false;
+        if (filter.min !== null && value < filter.min) return false;
+        if (filter.max !== null && value > filter.max) return false;
+        return true;
+    };
+
+    const cardThumb = (item) => item.isUnique && !item.imagePath
+        ? '<altered-card ref="' + escapeHtml(item.reference) + '" locale="' + escapeHtml(locale()) + '" style="width:100%;"></altered-card>'
+        : (item.imagePath
+            ? '<img src="' + escapeHtml(item.imagePath) + '" alt="" class="ao-collection-cover-img">'
+            : '<div class="ao-opener-cover-fallback mx-auto"><i class="fa-solid fa-image fa-3x"></i></div>');
+
+    const renderGrid = (cards) => {
+        gridEl.innerHTML = '';
+        cards.forEach((card) => {
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-3 col-lg-2';
+            const tile = document.createElement('button');
+            tile.type = 'button';
+            tile.className = 'ao-collection-tile w-100';
+            tile.innerHTML =
+                cardThumb(card) +
+                '<div class="mt-2 fw-semibold small">' + escapeHtml(card.name || card.reference) + '</div>' +
+                '<div class="text-muted small ao-collection-qty">×' + card.quantity + '</div>';
+            tile.addEventListener('click', () => openZoom(card));
+            col.appendChild(tile);
+            gridEl.appendChild(col);
+        });
+    };
+
+    const applyFilters = () => {
+        const name = nameInput.value.trim().toLowerCase();
+        const types = new Set(multiSelectValues(typeSelect));
+        const variations = new Set(multiSelectValues(variationSelect));
+        const subtypes = new Set(multiSelectValues(subtypeSelect));
+        const mainCost = numericFilter('maincost');
+        const recallCost = numericFilter('recallcost');
+        const forest = numericFilter('forest');
+        const mountain = numericFilter('mountain');
+        const ocean = numericFilter('ocean');
+
+        const filtered = allCards.filter((c) => {
+            if (name && !(c.name || '').toLowerCase().includes(name)) return false;
+            if (activeFactions.size && !activeFactions.has(c.faction)) return false;
+            if (activeSets.size && !activeSets.has(c.set)) return false;
+            if (activeRarities.size && !activeRarities.has(c.rarity)) return false;
+            if (types.size && !types.has(c.cardType)) return false;
+            if (variations.size && !variations.has(c.variation)) return false;
+            if (subtypes.size && !(c.subTypes || []).some((s) => subtypes.has(s))) return false;
+            if (!passesNumeric(c.mainCost, mainCost)) return false;
+            if (!passesNumeric(c.recallCost, recallCost)) return false;
+            if (!passesNumeric(c.forest, forest)) return false;
+            if (!passesNumeric(c.mountain, mountain)) return false;
+            if (!passesNumeric(c.ocean, ocean)) return false;
+            return true;
+        });
+
+        emptyEl.hidden = filtered.length > 0;
+        countEl.textContent = filtered.length + ' / ' + allCards.length;
+        renderGrid(filtered);
+    };
+
+    nameInput.addEventListener('input', applyFilters);
+    [typeSelect, variationSelect, subtypeSelect].forEach((sel) => sel.addEventListener('change', applyFilters));
+    numericIds.forEach((id) => {
+        numericInputs[id].min.addEventListener('input', applyFilters);
+        numericInputs[id].max.addEventListener('input', applyFilters);
+    });
+
+    resetBtn.addEventListener('click', () => {
+        nameInput.value = '';
+        activeFactions.clear();
+        activeSets.clear();
+        activeRarities.clear();
+        factionRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
+        setRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
+        rarityRowEl.querySelectorAll('.active').forEach((b) => b.classList.remove('active'));
+        typeSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
+        variationSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
+        subtypeSelect.querySelectorAll('option').forEach((o) => { o.selected = false; });
+        numericIds.forEach((id) => { numericInputs[id].min.value = ''; numericInputs[id].max.value = ''; });
+        applyFilters();
+    });
+
+    // Zoom overlay — same pointer-tilt effect as the booster opener and history's card
+    // zoom (card-tilt.js), but no pack-cover step: just the card, as big as possible.
+    const zoomBackdrop = document.getElementById('ao-opener-backdrop');
+    const zoomContent = document.getElementById('ao-opener-card');
+    const closeZoom = () => {
+        zoomBackdrop.hidden = true;
+        window.AO_CARD_TILT?.detach(zoomContent);
+        zoomContent.innerHTML = '';
+    };
+    zoomBackdrop?.addEventListener('click', (e) => {
+        if (e.target === zoomBackdrop) closeZoom();
+    });
+    const openZoom = (card) => {
+        zoomContent.innerHTML = card.isUnique
+            ? '<altered-card ref="' + escapeHtml(card.reference) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
+            : (card.imagePath
+                ? '<img src="' + escapeHtml(card.imagePath) + '" alt="' + escapeHtml(card.name || '') + '" style="max-width:100%;max-height:100%;">'
+                : '<div class="ao-opener-cover-fallback"><i class="fa-solid fa-image fa-3x"></i></div>');
+        window.AO_CARD_TILT?.attach(zoomContent);
+        zoomBackdrop.hidden = false;
+    };
+
+    (async () => {
+        try {
+            const res = await fetch('/api/collection?locale=' + encodeURIComponent(locale()), { credentials: 'same-origin' });
+            loadingEl.hidden = true;
+
+            if (res.status === 401) { anonEl.hidden = false; return; }
+            if (!res.ok) {
+                errorEl.hidden = false;
+                errorEl.textContent = t('collection.loadError', 'Could not load your collection.');
+                return;
+            }
+
+            allCards = await res.json();
+            appEl.hidden = false;
+
+            iconToggleRow(factionRowEl, FACTIONS, activeFactions, (code) => '/img/factions/' + code + '.webp');
+            // FUGUE has no official set logo yet (see BoosterCatalog.cs) — no icon file for it.
+            iconToggleRow(setRowEl, SETS, activeSets, (code) => code === 'FUGUE' ? null : '/img/sets/' + code + '.webp');
+            iconToggleRow(rarityRowEl, RARITIES, activeRarities, () => null);
+            refreshDynamicFacets();
+            applyFilters();
+        } catch {
+            loadingEl.hidden = true;
+            errorEl.hidden = false;
+            errorEl.textContent = t('collection.networkError', 'Network error.');
+        }
+    })();
+})();

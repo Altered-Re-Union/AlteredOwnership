@@ -33,6 +33,7 @@ public class CollectionReader(OwnershipDbContext db)
             {
                 x.co.CardReference,
                 x.co.Quantity,
+                x.co.IsUnique,
                 Name = x.card != null ? x.card.Name : null,
                 ImagePath = x.card != null ? x.card.ImagePath : null,
                 Set = x.card != null ? x.card.Set : null,
@@ -54,7 +55,7 @@ public class CollectionReader(OwnershipDbContext db)
 
         var items = rows
             .Select(r => new CardCollectionItemResponse(
-                r.CardReference, r.Quantity,
+                r.CardReference, r.Quantity, r.IsUnique,
                 Localize(r.Name, locale), Localize(r.ImagePath, locale),
                 r.Set, r.Faction, r.Rarity, r.CardType, r.Variation, r.SubTypes,
                 r.IsBanned, r.IsSuspended,

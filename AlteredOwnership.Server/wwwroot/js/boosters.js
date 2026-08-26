@@ -188,6 +188,12 @@
         window.AO_CARD_TILT?.detach(coverEl);
         coverEl.classList.add('ao-opening');
         infoEl.hidden = true;
+
+        // Reflect the draw in the grid right away — it's still visible behind the dimmed
+        // backdrop, and waiting until the overlay closes to update it reads as stale/wrong.
+        booster.quantity -= 1;
+        renderGrid(boosterList);
+        qtyEl.textContent = '×' + booster.quantity;
     };
 
     loadBoosters();

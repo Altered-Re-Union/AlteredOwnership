@@ -8,13 +8,16 @@ using AlteredOwnership.Server.Domain;
 
 namespace AlteredOwnership.Server.Domain.Services;
 
-public record EventCardPreview(string Reference, int Quantity, string? Name, string? ImagePath, bool IsUnique);
+public record EventCardPreview(string Reference, int Quantity, string? Name, string? ImagePath, bool IsUnique, bool IsBooster);
 
+// CardCount is the number of distinct card (non-booster) line items, not a quantity sum —
+// the history page uses it to decide whether a row has exactly one card to jump straight to
+// (skipping the detail modal) versus needing the modal to pick among several.
 public record EventSummaryResponse(
-    long Id, string Name, DateTimeOffset CreatedAt, int Received, int Given,
+    long Id, string Name, DateTimeOffset CreatedAt, int Received, int Given, int CardCount,
     IReadOnlyList<EventCardPreview> Preview);
 
-public record EventCardLine(string Reference, int Quantity, string? Name, string? ImagePath, bool IsUnique);
+public record EventCardLine(string Reference, int Quantity, string? Name, string? ImagePath, bool IsUnique, bool IsBooster);
 
 public record EventDetailResponse(
     long Id, string Name, DateTimeOffset CreatedAt,
@@ -40,11 +43,12 @@ public class EventHistoryReader(OwnershipDbContext db)
         {
             var received = description.Items.Where(i => i.Quantity > 0).Sum(i => i.Quantity);
             var given = -description.Items.Where(i => i.Quantity < 0).Sum(i => i.Quantity);
+            var cardCount = description.Items.Count(i => i.Kind == EventItemKind.Card);
             var preview = description.Items
                 .Take(PreviewCount)
                 .Select(i => ToPreview(i, catalog, locale))
                 .ToList();
-            return new EventSummaryResponse(evt.Id, description.Name, evt.CreatedAt, received, given, preview);
+            return new EventSummaryResponse(evt.Id, description.Name, evt.CreatedAt, received, given, cardCount, preview);
         }).ToList();
     }
 
@@ -60,7 +64,7 @@ public class EventHistoryReader(OwnershipDbContext db)
         EventCardLine ToLine(EventItemDelta item, int quantity)
         {
             var preview = ToPreview(item with { Quantity = quantity }, catalog, locale);
-            return new EventCardLine(preview.Reference, preview.Quantity, preview.Name, preview.ImagePath, preview.IsUnique);
+            return new EventCardLine(preview.Reference, preview.Quantity, preview.Name, preview.ImagePath, preview.IsUnique, preview.IsBooster);
         }
 
         var received = description.Items.Where(i => i.Quantity > 0).Select(i => ToLine(i, i.Quantity)).ToList();
@@ -74,7 +78,7 @@ public class EventHistoryReader(OwnershipDbContext db)
         if (item.Kind == EventItemKind.Booster)
         {
             var boosterType = BoosterCatalog.Find(item.Reference);
-            return new EventCardPreview(item.Reference, item.Quantity, boosterType?.Name, boosterType?.ImagePath, false);
+            return new EventCardPreview(item.Reference, item.Quantity, boosterType?.Name, boosterType?.ImagePath, false, true);
         }
 
         var card = catalog.GetValueOrDefault(item.Reference);
@@ -82,7 +86,7 @@ public class EventHistoryReader(OwnershipDbContext db)
             item.Reference, item.Quantity,
             CardLocalization.Localize(card?.Name, locale),
             CardLocalization.Localize(card?.ImagePath, locale),
-            CardReferenceParser.IsUnique(item.Reference));
+            CardReferenceParser.IsUnique(item.Reference), false);
     }
 
     private async Task<Dictionary<string, Card>> LoadCatalogAsync(IReadOnlyList<string> references, CancellationToken ct)

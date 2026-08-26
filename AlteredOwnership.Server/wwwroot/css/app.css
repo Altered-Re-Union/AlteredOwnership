@@ -97,9 +97,99 @@ a:hover {
     .ao-back-link span { display: none; }
 }
 
+/* Top nav — same row on every page (Collection/Boosters/History/Import), so moving
+   between them never requires going back to a landing page first. */
+.ao-nav {
+    background-color: var(--ao-surface);
+    border-bottom: 1px solid var(--ao-border);
+}
+
+.ao-nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+}
+
+.ao-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 0.9rem;
+    text-decoration: none;
+    color: #5a6072;
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+}
+
+.ao-nav-link:hover {
+    color: var(--ao-accent);
+}
+
+.ao-nav-link.ao-nav-link--active {
+    color: var(--ao-accent);
+    border-bottom-color: var(--ao-accent);
+}
+
 /* Content */
 #ao-main {
     max-width: 960px;
+}
+
+/* Collection page: icon filter rows (faction/set/rarity) and card grid. */
+.ao-icon-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.ao-icon-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--ao-border);
+    border-radius: 999px;
+    background: var(--ao-surface);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.ao-icon-filter-btn img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
+
+.ao-icon-filter-btn.active {
+    border-color: var(--ao-accent);
+    background: color-mix(in srgb, var(--ao-accent) 12%, var(--ao-surface));
+    color: var(--ao-accent);
+    font-weight: 600;
+}
+
+.ao-collection-tile {
+    border: 1px solid var(--ao-border);
+    border-radius: 0.5rem;
+    background: var(--ao-surface);
+    padding: 0.5rem;
+    text-align: center;
+    cursor: pointer;
+}
+
+.ao-collection-cover-img {
+    max-width: 100%;
+    height: 210px;
+    object-fit: contain;
+}
+
+.ao-collection-qty {
+    position: relative;
+    top: -0.25rem;
 }
 
 /* Booster tiles */
@@ -251,6 +341,14 @@ a:hover {
 }
 .ao-opener-open-btn:hover {
     opacity: 0.9;
+}
+
+/* History: generic card-back / booster icon next to each event row's ±X count
+   (see renderDelta in history.js). */
+.ao-delta-icon {
+    width: 20px;
+    height: auto;
+    border-radius: 2px;
 }
 
 /* History: clickable card thumbnail (detail modal) that opens the zoom overlay. */

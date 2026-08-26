@@ -39,10 +39,21 @@
             '<span>' + escapeHtml(cardLabel(item)) + '</span>' +
         '</span>').join(' ');
 
+    // +received is (almost) always cards, -given is (almost) always the booster(s) that
+    // were opened for them, so a generic card-back / booster icon next to each count reads
+    // at a glance without needing the reference or booster name spelled out.
     const renderDelta = (evt) => {
         const parts = [];
-        if (evt.received > 0) parts.push('<span class="text-success fw-semibold">+' + evt.received + '</span>');
-        if (evt.given > 0) parts.push('<span class="text-danger fw-semibold">-' + evt.given + '</span>');
+        if (evt.received > 0) parts.push(
+            '<span class="ao-delta d-inline-flex align-items-center gap-1">' +
+                '<img src="/img/card-back.webp" alt="" class="ao-delta-icon">' +
+                '<span class="text-success fw-semibold">+' + evt.received + '</span>' +
+            '</span>');
+        if (evt.given > 0) parts.push(
+            '<span class="ao-delta d-inline-flex align-items-center gap-1">' +
+                '<img src="/img/booster-icon.webp" alt="" class="ao-delta-icon">' +
+                '<span class="text-danger fw-semibold">-' + evt.given + '</span>' +
+            '</span>');
         return parts.join(' ');
     };
 
@@ -59,7 +70,11 @@
                 '</div>' +
                 '<div class="text-nowrap">' + renderDelta(evt) + '</div>' +
             '</div>';
-        item.addEventListener('click', () => openDetail(evt.id));
+        // Exactly one card in this event (the common case: a single booster opened) — skip
+        // the detail modal entirely and jump straight to that card's zoom. Anything else
+        // (several cards, or none — e.g. only a booster grant) still needs the modal to
+        // pick among lines.
+        item.addEventListener('click', () => (evt.cardCount === 1 ? openSingleCardZoom(evt.id) : openDetail(evt.id)));
         return item;
     };
 
@@ -93,6 +108,22 @@
                 : '<div class="ao-opener-cover-fallback"><i class="fa-solid fa-image fa-3x"></i></div>');
         window.AO_CARD_TILT?.attach(zoomContent);
         zoomBackdrop.hidden = false;
+    };
+
+    // Single-card events (a booster opened, most commonly) skip the detail modal
+    // entirely: fetch the detail just to resolve the one card's data, then go straight to
+    // its zoom. Falls back to the normal modal if anything about that shortcut fails.
+    const openSingleCardZoom = async (id) => {
+        try {
+            const res = await fetch('/api/history/' + encodeURIComponent(id), { credentials: 'same-origin' });
+            if (!res.ok) { openDetail(id); return; }
+            const detail = await res.json();
+            const line = detail.received.find((l) => !l.isBooster) || detail.given.find((l) => !l.isBooster);
+            if (!line) { openDetail(id); return; }
+            openZoom(line.reference, line.isUnique, line.name, line.imagePath);
+        } catch {
+            openDetail(id);
+        }
     };
 
     // Card thumbnails inside the modal aren't nested in another <button> (unlike the
