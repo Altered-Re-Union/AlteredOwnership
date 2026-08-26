@@ -125,22 +125,28 @@ a:hover {
 
 /* Booster-opening overlay: a booster cover tilts with the pointer, then slides
    down on click to reveal the card sitting underneath it (ported from the
-   click-triggered CSS transition in altered-draft's PackReveal component). */
+   click-triggered CSS transition in altered-draft's PackReveal component).
+   Sized close to the viewport rather than a small fixed box, with the card's
+   own aspect ratio (~63:88, the same proportions as the rendered card art) —
+   matches how immersive the reveal feels in altered-draft. */
 .ao-opener-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(15, 17, 26, 0.75);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
     z-index: 1080;
 }
 
 .ao-opener-stage {
     position: relative;
-    width: 260px;
-    height: 360px;
-    perspective: 800px;
+    width: min(94vw, calc(82vh * 63 / 88));
+    aspect-ratio: 63 / 88;
+    perspective: 900px;
 }
 
 .ao-opener-card {
@@ -151,6 +157,12 @@ a:hover {
     justify-content: center;
 }
 
+.ao-opener-card altered-card,
+.ao-tilt-card altered-card {
+    display: block;
+    width: 100%;
+}
+
 .ao-opener-cover {
     position: absolute;
     inset: 0;
@@ -158,20 +170,87 @@ a:hover {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transform: translateY(0) rotateX(var(--ao-tilt-x, 0deg)) rotateY(var(--ao-tilt-y, 0deg));
+    transform: translateY(0);
     transition: transform 500ms ease-in;
-    transform-style: preserve-3d;
 }
 
 .ao-opener-cover.ao-opening {
     transform: translateY(130%);
-    transition: transform 500ms ease-in;
 }
 
 .ao-opener-cover img,
 .ao-opener-cover .ao-opener-cover-fallback {
     max-width: 100%;
     max-height: 100%;
+}
+
+/* Prev/next arrows, flanking the stage — browse other booster types (sealed,
+   no server call) without leaving the overlay. */
+.ao-opener-nav {
+    position: absolute;
+    top: 50%;
+    translate: 0 -50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ao-opener-nav:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+.ao-opener-nav:disabled {
+    opacity: 0;
+    pointer-events: none;
+}
+.ao-opener-nav--prev {
+    left: -3.75rem;
+}
+.ao-opener-nav--next {
+    right: -3.75rem;
+}
+/* Not enough room off to the sides on narrow viewports (the stage itself can be
+   up to 94vw wide) — overlap the arrows onto the card edge instead of letting
+   them run off-screen. */
+@media (max-width: 640px) {
+    .ao-opener-nav--prev {
+        left: 0.5rem;
+    }
+    .ao-opener-nav--next {
+        right: 0.5rem;
+    }
+}
+
+/* Name/quantity + Open button, shown under the sealed cover (hidden once the
+   opening slide starts) — ported from altered-draft's CardZoom pack-cover label
+   and Open button. */
+.ao-opener-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: center;
+    color: #fff;
+}
+
+.ao-opener-open-btn {
+    padding: 0.6rem 1.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: var(--ao-accent);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+.ao-opener-open-btn:hover {
+    opacity: 0.9;
 }
 
 /* History: clickable card thumbnail (detail modal) that opens the zoom overlay. */
@@ -183,12 +262,20 @@ a:hover {
     line-height: 0;
 }
 
-/* Standalone tiltable card (history "zoom" view — no cover/reveal, just the card
-   itself tracking the pointer). Shares the --ao-tilt-x/--ao-tilt-y vars card-tilt.js
-   writes, but its own transform (no translateY-on-open like the booster cover). */
+/* Shared pointer-tilt rotator: the booster cover's inner content (kept separate
+   from the cover's own translateY-on-open transform above) and the history
+   "zoom" card both rotate through this same class/timing, so both feel
+   identical — matches altered-draft's single .holo-card__rotator transition,
+   including its rotateY-then-rotateX order and 400ms ease-out. */
 .ao-tilt-card {
-    transform: rotateX(var(--ao-tilt-x, 0deg)) rotateY(var(--ao-tilt-y, 0deg));
-    transition: transform 100ms ease-out;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotateY(var(--ao-tilt-y, 0deg)) rotateX(var(--ao-tilt-x, 0deg));
+    transition: transform 400ms ease-out;
+    transform-style: preserve-3d;
 }
 
 .ao-opener-cover-fallback {

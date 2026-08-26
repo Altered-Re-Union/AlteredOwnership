@@ -139,7 +139,8 @@ app.Use(async (ctx, next) =>
         " https://cdn.alteredcore.org/forge/assets/vendor/qrcodejs/qrcode.min.js" +
         " 'sha256-rvoYWRsJWALEi7RxCTeJ1+9+IKP6fTcNUMZNVHddmoo=' " +
         "'sha256-PSbJmyvxZNzvRDi+D/Qj0klN/RcQ2sw/ms/fz2MzO6Y=' " +
-        "'sha256-STS9SqU0XU6MD9z/R5Vuu133130JZh3udAlYzLFvda4='; " +
+        "'sha256-STS9SqU0XU6MD9z/R5Vuu133130JZh3udAlYzLFvda4=' " +
+        "'sha256-kHSVOw8OSbTT44VL4R5JhFCdmB5YzppScj+fO7BJTQI='; " +
         // cards.alteredcore.org is the Altered-Card-Renderer's card-lookup API
         // (distinct from the CardsApiBase import client, which is server-only).
         "connect-src 'self' https://cdn.alteredcore.org https://cards.alteredcore.org; " +
