@@ -33,31 +33,37 @@
             ? '<img src="' + escapeHtml(item.imagePath) + '" alt="" style="width:' + sizePx + 'px;height:auto;">'
             : '');
 
-    const renderPreview = (preview) => preview.map((item) =>
-        '<span class="d-inline-flex align-items-center gap-1 small border rounded px-2 py-1">' +
-            cardThumb(item, 40) +
-            '<span>' + escapeHtml(cardLabel(item)) + '</span>' +
-        '</span>').join(' ');
+    // opts.hideBoosterImage/hideCardName: booster-opened rows already say which booster
+    // in their title, so the preview strip there only needs the card art, not another
+    // copy of the booster cover or a text label repeating the name.
+    const renderPreview = (preview, opts = {}) => preview
+        .filter((item) => !(opts.hideBoosterImage && item.isBooster))
+        .map((item) =>
+            '<span class="d-inline-flex align-items-center gap-1 small border rounded px-2 py-1">' +
+                cardThumb(item, 40) +
+                (opts.hideCardName ? '' : '<span>' + escapeHtml(cardLabel(item)) + '</span>') +
+            '</span>').join(' ');
 
-    // +received is (almost) always cards, -given is (almost) always the booster(s) that
-    // were opened for them, so a generic card-back / booster icon next to each count reads
-    // at a glance without needing the reference or booster name spelled out.
+    // Cards and boosters are tallied separately server-side (a reward can grant boosters
+    // directly, without opening them), each with its own icon so a +boosters grant doesn't
+    // read as +cards.
     const renderDelta = (evt) => {
-        const parts = [];
-        if (evt.received > 0) parts.push(
-            '<span class="ao-delta d-inline-flex align-items-center gap-1">' +
-                '<img src="/img/card-back.webp" alt="" class="ao-delta-icon">' +
-                '<span class="text-success fw-semibold">+' + evt.received + '</span>' +
-            '</span>');
-        if (evt.given > 0) parts.push(
-            '<span class="ao-delta d-inline-flex align-items-center gap-1">' +
-                '<img src="/img/booster-icon.webp" alt="" class="ao-delta-icon">' +
-                '<span class="text-danger fw-semibold">-' + evt.given + '</span>' +
-            '</span>');
-        return parts.join(' ');
+        const badge = (count, sign, iconSrc, colorClass) => count > 0
+            ? '<span class="ao-delta d-inline-flex align-items-center gap-1">' +
+                '<img src="' + iconSrc + '" alt="" class="ao-delta-icon">' +
+                '<span class="' + colorClass + ' fw-semibold">' + sign + count + '</span>' +
+            '</span>'
+            : '';
+        return [
+            badge(evt.cardsReceived, '+', '/img/card-back.webp', 'text-success'),
+            badge(evt.boostersReceived, '+', '/img/booster-icon.webp', 'text-success'),
+            badge(evt.cardsGiven, '-', '/img/card-back.webp', 'text-danger'),
+            badge(evt.boostersGiven, '-', '/img/booster-icon.webp', 'text-danger'),
+        ].filter(Boolean).join(' ');
     };
 
     const renderEventRow = (evt) => {
+        const isBoosterOpened = evt.kind === 'BoosterOpened';
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'list-group-item list-group-item-action';
@@ -66,7 +72,9 @@
                 '<div>' +
                     '<div class="fw-semibold">' + escapeHtml(evt.name) + '</div>' +
                     '<div class="text-muted small mb-2">' + escapeHtml(formatDate(evt.createdAt)) + '</div>' +
-                    '<div class="d-flex flex-wrap gap-2">' + renderPreview(evt.preview) + '</div>' +
+                    '<div class="d-flex flex-wrap gap-2">' +
+                        renderPreview(evt.preview, isBoosterOpened ? { hideBoosterImage: true, hideCardName: true } : {}) +
+                    '</div>' +
                 '</div>' +
                 '<div class="text-nowrap">' + renderDelta(evt) + '</div>' +
             '</div>';
@@ -106,7 +114,9 @@
             : (imagePath
                 ? '<img src="' + escapeHtml(imagePath) + '" alt="' + escapeHtml(name) + '" style="max-width:100%;max-height:100%;">'
                 : '<div class="ao-opener-cover-fallback"><i class="fa-solid fa-image fa-3x"></i></div>');
-        window.AO_CARD_TILT?.attach(zoomContent);
+        // Holo shine/glare only for uniques — alt-arts/commons pulled in via collection
+        // import don't get the "special pull" treatment.
+        window.AO_CARD_TILT?.attach(zoomContent, { holo: isUnique });
         zoomBackdrop.hidden = false;
     };
 
@@ -180,6 +190,11 @@
 
     (async () => {
         try {
+            // Wait for app.js to resolve the real account locale before reading it —
+            // otherwise this fires before /me returns and permanently reads the "en"
+            // default for this page load, showing English dates/card names to a French
+            // account.
+            await (window.AO_LANG_READY || Promise.resolve());
             const res = await fetch('/api/history?locale=' + encodeURIComponent(locale()), { credentials: 'same-origin' });
             loadingEl.hidden = true;
 

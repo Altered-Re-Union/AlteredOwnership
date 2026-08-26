@@ -14,7 +14,7 @@ public class BoosterTests(OwnershipApiFactory factory) : IClassFixture<Ownership
     private record OpenedCardDto(string CardReference, string? Name, string? ImagePath, bool IsUnique);
     private record BoosterInventoryDto(string BoosterTypeKey, string Name, string? ImagePath, int Quantity);
     private record CardOwnershipDto(string Reference, int Quantity);
-    private record EventSummaryDto(long Id, string Name, int Received, int Given);
+    private record EventSummaryDto(long Id, string Name, string Kind, int CardsReceived, int CardsGiven, int BoostersReceived, int BoostersGiven);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -193,8 +193,11 @@ public class BoosterTests(OwnershipApiFactory factory) : IClassFixture<Ownership
 
         var events = await GetHistoryAsync(keycloakId);
         Assert.Equal(2, events.Count); // one for the grant, one for the open
-        var openEvent = events.Single(e => e.Name == "Booster ouvert");
-        Assert.Equal(1, openEvent.Received);
-        Assert.Equal(1, openEvent.Given);
+        var openEvent = events.Single(e => e.Name == "Ouverture de booster : Unique aléatoire Axiom");
+        Assert.Equal("BoosterOpened", openEvent.Kind);
+        Assert.Equal(1, openEvent.CardsReceived);
+        Assert.Equal(0, openEvent.CardsGiven);
+        Assert.Equal(0, openEvent.BoostersReceived);
+        Assert.Equal(1, openEvent.BoostersGiven);
     }
 }

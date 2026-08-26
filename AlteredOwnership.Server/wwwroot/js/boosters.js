@@ -90,6 +90,24 @@
 
     let currentIndex = -1;
 
+    // The <altered-card> web component draws its art onto a <canvas> it inserts itself,
+    // asynchronously, with no load/ready event of its own to hook into. Wait for that
+    // canvas to actually appear (plus a couple of frames for it to finish painting) before
+    // sliding the cover away, so the reveal doesn't uncover an empty/loading card — capped
+    // at a few seconds so a slow/broken renderer never leaves the cover stuck shut.
+    const waitForCardReady = (hostEl, timeoutMs = 4000) => new Promise((resolve) => {
+        const settle = () => requestAnimationFrame(() => requestAnimationFrame(resolve));
+        if (hostEl.querySelector('canvas')) { settle(); return; }
+        const observer = new MutationObserver(() => {
+            if (!hostEl.querySelector('canvas')) return;
+            observer.disconnect();
+            clearTimeout(timer);
+            settle();
+        });
+        observer.observe(hostEl, { childList: true, subtree: true });
+        const timer = setTimeout(() => { observer.disconnect(); resolve(); }, timeoutMs);
+    });
+
     let csrfToken = null;
     const fetchCsrfToken = async () => {
         try {
@@ -187,10 +205,12 @@
         cardEl.innerHTML = card
             ? '<altered-card ref="' + escapeHtml(card.cardReference) + '" locale="' + escapeHtml(locale()) + '"></altered-card>'
             : '';
+        if (card) await waitForCardReady(cardEl);
         window.AO_CARD_TILT?.detach(coverEl);
         coverEl.classList.add('ao-opening');
         infoEl.hidden = true;
-        if (card) window.AO_CARD_TILT?.attach(cardEl);
+        // Every booster draws a unique — always eligible for the gold holo shine.
+        if (card) window.AO_CARD_TILT?.attach(cardEl, { holo: true });
 
         // Reflect the draw in the grid right away — it's still visible behind the dimmed
         // backdrop, and waiting until the overlay closes to update it reads as stale/wrong.

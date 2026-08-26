@@ -295,7 +295,10 @@ a:hover {
     height: 2.75rem;
     border-radius: 0.5rem;
     border: none;
-    background: rgba(255, 255, 255, 0.15);
+    /* Dark + shadowed (not a faint white tint) so the arrow stays readable over any card
+       art behind it once the reveal has happened, not just over the dim backdrop. */
+    background: rgba(10, 11, 18, 0.55);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
     color: #fff;
     font-size: 1.5rem;
     line-height: 1;
@@ -303,9 +306,10 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1;
 }
 .ao-opener-nav:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(10, 11, 18, 0.8);
 }
 .ao-opener-nav:disabled {
     opacity: 0;
@@ -385,6 +389,55 @@ a:hover {
     transform: rotateY(var(--ao-tilt-y, 0deg)) rotateX(var(--ao-tilt-x, 0deg));
     transition: transform 400ms ease-out;
     transform-style: preserve-3d;
+}
+
+/* Holo shine/glare (revealed unique cards + their history zoom) — gold sheen sliding
+   under the pointer/tilt, ported from altered-draft's .holo-card--u. card-tilt.js writes
+   --ao-tilt-px/-py (pointer position) and --ao-tilt-opacity (0 at rest, 1 while
+   interacting); everything else — gradients, blend modes — lives here. */
+.ao-tilt-holo {
+    position: relative;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 0 3px -1px #fff,
+        0 0 3px 1px hsl(47 100% 78% / var(--ao-tilt-opacity, 0)),
+        0 0 12px 2px hsl(175 100% 90% / var(--ao-tilt-opacity, 0));
+}
+
+.ao-tilt-shine,
+.ao-tilt-glare {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: opacity 400ms ease-out;
+}
+
+.ao-tilt-holo .ao-tilt-glare {
+    opacity: var(--ao-tilt-opacity, 0);
+    background-image: radial-gradient(
+        farthest-corner circle at var(--ao-tilt-px, 50%) var(--ao-tilt-py, 50%),
+        hsla(0, 0%, 100%, 0.8) 10%,
+        hsla(0, 0%, 100%, 0.4) 30%,
+        hsla(0, 0%, 0%, 0.3) 100%
+    );
+    mix-blend-mode: overlay;
+}
+
+.ao-tilt-holo .ao-tilt-shine {
+    background-image: repeating-linear-gradient(
+        65deg,
+        hsl(42 90% 58%) 0%,
+        hsl(42 90% 58%) 16%,
+        hsl(280 50% 55%) 20%,
+        hsl(42 90% 58%) 24%
+    );
+    background-size: 300% 300%;
+    background-position: var(--ao-tilt-px, 50%) var(--ao-tilt-py, 50%);
+    opacity: calc(var(--ao-tilt-opacity, 0) * 0.45);
+    filter: brightness(1.05) contrast(1.05) saturate(0.8);
+    mix-blend-mode: soft-light;
 }
 
 .ao-opener-cover-fallback {

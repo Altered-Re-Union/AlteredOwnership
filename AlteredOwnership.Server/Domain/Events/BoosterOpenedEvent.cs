@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AlteredOwnership.Server.Data.Entities;
+using AlteredOwnership.Server.Domain.Boosters;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
 
 namespace AlteredOwnership.Server.Domain.Events;
@@ -61,6 +62,7 @@ public static class BoosterOpenedEvent
             new(payload.BoosterTypeKey, -payload.BoostersOpened, EventItemKind.Booster),
         };
         items.AddRange(payload.CardReferences.Select(r => new EventItemDelta(r, 1)));
-        return new EventDescription("Booster ouvert", items);
+        var boosterName = BoosterCatalog.Find(payload.BoosterTypeKey)?.Name ?? payload.BoosterTypeKey;
+        return new EventDescription($"Ouverture de booster : {boosterName}", items);
     }
 }

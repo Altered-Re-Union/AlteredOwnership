@@ -11,7 +11,7 @@ namespace AlteredOwnership.Server.Tests.Integration;
 
 public class HistoryTests(OwnershipApiFactory factory) : IClassFixture<OwnershipApiFactory>
 {
-    private record EventSummaryDto(long Id, string Name, int Received, int Given, List<PreviewDto> Preview);
+    private record EventSummaryDto(long Id, string Name, string Kind, int CardsReceived, int CardsGiven, int BoostersReceived, int BoostersGiven, List<PreviewDto> Preview);
     private record PreviewDto(string Reference, int Quantity, string? Name, string? ImagePath);
     private record DetailDto(long Id, string Name, List<LineDto> Received, List<LineDto> Given);
     private record LineDto(string Reference, int Quantity, string? Name, string? ImagePath);
@@ -58,8 +58,10 @@ public class HistoryTests(OwnershipApiFactory factory) : IClassFixture<Ownership
 
         var evt = Assert.Single(events);
         Assert.Equal("Event Test Paris", evt.Name);
-        Assert.Equal(2, evt.Received);
-        Assert.Equal(0, evt.Given);
+        Assert.Equal(2, evt.CardsReceived);
+        Assert.Equal(0, evt.CardsGiven);
+        Assert.Equal(0, evt.BoostersReceived);
+        Assert.Equal(0, evt.BoostersGiven);
         var preview = Assert.Single(evt.Preview);
         Assert.Equal("ALT_ALIZE_B_AX_70_C", preview.Reference);
         Assert.Equal(2, preview.Quantity);
@@ -153,7 +155,7 @@ public class HistoryTests(OwnershipApiFactory factory) : IClassFixture<Ownership
         importRes.EnsureSuccessStatusCode();
 
         var evt = Assert.Single(await GetHistoryAsync(keycloakId));
-        Assert.Equal(10, evt.Received); // 1 + 2 + 3 + 4
+        Assert.Equal(10, evt.CardsReceived); // 1 + 2 + 3 + 4
         Assert.Equal(3, evt.Preview.Count);
     }
 

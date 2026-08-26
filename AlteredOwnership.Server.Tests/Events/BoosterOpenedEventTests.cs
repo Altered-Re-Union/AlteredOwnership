@@ -49,7 +49,7 @@ public class BoosterOpenedEventTests
 
         var description = BoosterOpenedEvent.Describe(Json(payload));
 
-        Assert.Equal("Booster ouvert", description.Name);
+        Assert.Equal("Ouverture de booster : Unique aléatoire", description.Name);
         Assert.Equal(3, description.Items.Count); // 1 booster delta + 2 card deltas, one event
         Assert.Contains(description.Items, i => i is { Reference: "UNIQUE_RANDOM", Quantity: -2, Kind: EventItemKind.Booster });
         Assert.Contains(description.Items, i => i is { Reference: "ALT_ALIZE_B_AX_01_U_1", Quantity: 1, Kind: EventItemKind.Card });

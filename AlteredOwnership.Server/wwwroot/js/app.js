@@ -129,6 +129,14 @@
     // must exist first — the re-render hook needs them).
     applyLang(DEFAULT_LANG);
 
+    // Other page scripts (history.js, boosters.js) read document.documentElement.lang
+    // for their own locale-dependent fetches/formatting. They run as separate deferred
+    // scripts right after this one and would otherwise race the /me call below — firing
+    // before the real locale lands and permanently reading "en" for that page load (stale
+    // English dates/card names even for a French account). They await this instead.
+    let resolveLangReady;
+    window.AO_LANG_READY = new Promise((resolve) => { resolveLangReady = resolve; });
+
     (async () => {
         try {
             const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
@@ -141,6 +149,8 @@
             renderUser(me);
         } catch {
             renderLogin();
+        } finally {
+            resolveLangReady();
         }
     })();
 

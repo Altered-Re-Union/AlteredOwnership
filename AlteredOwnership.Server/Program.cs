@@ -225,7 +225,17 @@ app.MapGet("/config.js", (HttpResponse response, IOptions<ExternalHostsOptions> 
     return Results.Text($"window.AppConfig = {json};", "application/javascript");
 });
 
-app.UseFileServer();
+// wwwroot has no build step (no hashed filenames), so without this every deploy would
+// serve stale JS/CSS/HTML to anyone whose browser cached the old response. Forcing
+// revalidation makes the browser send If-None-Match on every load; the server still
+// answers 304 for unchanged files, so this doesn't defeat caching, just staleness.
+app.UseFileServer(new FileServerOptions
+{
+    StaticFileOptions =
+    {
+        OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache, must-revalidate",
+    },
+});
 
 app.Run();
 

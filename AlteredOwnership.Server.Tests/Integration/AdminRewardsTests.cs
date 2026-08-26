@@ -16,7 +16,7 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
     private record CsrfResponse(string Token);
     private record CardOwnershipResponse(string Reference, int Quantity);
     private record BoosterInventoryResponse(string BoosterTypeKey, string Name, string? ImagePath, int Quantity);
-    private record EventSummaryResponse(long Id, string Name, int Received, int Given);
+    private record EventSummaryResponse(long Id, string Name, string Kind, int CardsReceived, int CardsGiven, int BoostersReceived, int BoostersGiven);
 
     private const string AdminUser = "admin-rewards-admin";
 
@@ -226,7 +226,9 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         var events = await GetHistoryAsync("reward-target-mixed");
         var evt = Assert.Single(events);
         Assert.Equal("Convention 2026", evt.Name);
-        Assert.Equal(5, evt.Received); // 2 + 1 cards + 2 boosters
-        Assert.Equal(0, evt.Given);
+        Assert.Equal(3, evt.CardsReceived); // 2 + 1 cards
+        Assert.Equal(0, evt.CardsGiven);
+        Assert.Equal(2, evt.BoostersReceived);
+        Assert.Equal(0, evt.BoostersGiven);
     }
 }
