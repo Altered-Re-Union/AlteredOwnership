@@ -28,6 +28,25 @@ public class CardMetadataBackfiller(
         await BackfillReferencesAsync(missing, ct);
     }
 
+    // Backfills the catalog for a specific set of references a user just acquired (e.g. a
+    // booster's drawn cards) instead of re-scanning their whole collection. Booster opens
+    // call this — not BackfillAsync — because BackfillAsync's CardOwnerships scan grows
+    // with the user's total uncatalogued (almost always permanently-uncatalogued unique)
+    // card count, making every single open progressively slower as that collection grows.
+    public async Task BackfillReferencesForUserAsync(Guid userId, IReadOnlyList<string> references, CancellationToken ct)
+    {
+        if (references.Count == 0)
+            return;
+
+        var missing = await db.CardOwnerships
+            .Where(co => co.UserId == userId && references.Contains(co.CardReference)
+                && !db.Cards.Any(c => c.Reference == co.CardReference))
+            .Select(co => co.CardReference)
+            .ToListAsync(ct);
+
+        await BackfillReferencesAsync(missing, ct);
+    }
+
     // Backfills every owned-but-uncatalogued reference across all users. Used by the hourly
     // refresh job to recover references whose import-time backfill failed.
     public async Task BackfillMissingAsync(CancellationToken ct)

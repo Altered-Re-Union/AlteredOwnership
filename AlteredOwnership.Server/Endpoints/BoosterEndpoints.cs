@@ -71,9 +71,15 @@ public static class BoosterEndpoints
             }
 
             // Best-effort, same as the import path: catch up on any drawn reference the
-            // catalog doesn't know yet (a no-op for uniques, which never get a catalog row —
-            // see CardMetadataBackfiller — but keeps this correct if that ever changes).
-            await backfiller.BackfillAsync(userId, ct);
+            // catalog doesn't know yet — skipped entirely for uniques (every booster today
+            // draws only uniques, which never get a catalog row) so a normal open never pays
+            // for the FetchAsync round-trip to cards.alteredcore.org that would otherwise run,
+            // fail to find anything, and insert nothing on every single open. Scoped to just
+            // the drawn references (not BackfillAsync's whole-collection scan) so this stays
+            // correct and cheap if a future booster type ever draws a non-unique.
+            var nonUniqueReferences = cardReferences.Where(r => !CardReferenceParser.IsUnique(r)).ToList();
+            if (nonUniqueReferences.Count > 0)
+                await backfiller.BackfillReferencesForUserAsync(userId, nonUniqueReferences, ct);
 
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             var catalog = await db.Cards
