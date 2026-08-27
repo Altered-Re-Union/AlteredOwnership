@@ -11,10 +11,6 @@
     <script src="/config.js"></script>
     <script src="/js/bootstrap.js"></script>
 
-    <!-- Small per-set glyphs on the edition filter tiles — self-contained icon font (base64
-         woff2 embedded in the CSS itself), copied from alteredcore-website's own
-         assets/font/alteredicons.css. -->
-    <link rel="stylesheet" href="/css/alteredicons.css" />
     <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
@@ -26,8 +22,8 @@
             </a>
 
             <div class="ao-header-controls">
-                <a class="ao-back-link" data-cfg-href="{reunionWebBase}/">
-                    <i class="fa-solid fa-arrow-left"></i><span data-i18n="nav.back">Back to altered.re</span>
+                <a class="ao-back-link" id="ao-back-link" href="/">
+                    <i class="fa-solid fa-arrow-left"></i><span data-i18n="nav.backHome">Back</span>
                 </a>
 
                 <div id="ao-auth-control"></div>
@@ -35,136 +31,57 @@
         </div>
     </header>
 
-    <nav class="ao-nav">
-        <div class="ao-nav-inner">
-            <a class="ao-nav-link ao-nav-link--active" href="/">
-                <i class="fa-solid fa-layer-group"></i><span data-i18n="nav.collection">Collection</span>
-            </a>
-            <a class="ao-nav-link" href="/boosters.html">
-                <i class="fa-solid fa-gift"></i><span data-i18n="nav.boosters">Boosters</span>
-                <span id="ao-nav-boosters-badge" class="ao-nav-badge" hidden>0</span>
-            </a>
-            <a class="ao-nav-link" href="/history.html">
-                <i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="nav.history">History</span>
-            </a>
-            <a class="ao-nav-link" href="/import.html">
-                <i class="fa-solid fa-file-import"></i><span data-i18n="nav.import">Import</span>
-            </a>
-        </div>
-    </nav>
-
     <main id="ao-main" class="container py-4">
-        <h1 class="h3 mb-2" data-i18n="collection.title">My collection</h1>
+        <h1 class="h3 mb-4" data-i18n="main.title">Collection importer</h1>
 
-        <div id="ao-collection-anon" hidden>
-            <a href="/api/auth/login?returnUrl=/" class="btn btn-primary">
-                <i class="fa-solid fa-user me-1"></i><span data-i18n="import.loginRegister">Log in / Sign up</span>
-            </a>
-        </div>
+        <h2 class="h5 mt-4" data-i18n="section.export.title">How do I export my current collection?</h2>
+        <div data-i18n-html="section.export.body"></div>
+        <hr class="my-4" />
 
-        <div id="ao-collection-loading" class="text-muted" data-i18n="collection.loading">Loading…</div>
-        <div id="ao-collection-error" class="alert alert-danger" hidden></div>
+        <h2 class="h5 mt-4" data-i18n="section.whatImported.title">What will be imported?</h2>
+        <div data-i18n-html="section.whatImported.body"></div>
+        <hr class="my-4" />
 
-        <div id="ao-collection-app" hidden>
-            <!-- Quick filters: name search + set/faction+rarity/type toggles, always visible.
-                 No category labels (Faction/Rarity/…) — the chips read fine on their own and
-                 skipping them saves meaningful vertical space; order/grouping (set row, then
-                 faction+rarity sharing one row, then type) matches altered.re's own layout. -->
-            <div class="ao-filters mb-2">
-                <div class="ao-search-box mb-2">
-                    <input type="text" id="ao-filter-name" class="form-control" data-i18n-placeholder="collection.searchPlaceholder" placeholder="Search by name…">
+        <h2 class="h5 mt-4" data-i18n="section.terms.title">What are the terms?</h2>
+        <div data-i18n-html="section.terms.body"></div>
+
+        <section id="ao-import" class="card mt-4">
+            <div class="card-body">
+                <h2 class="h5 card-title" data-i18n="import.title">Import my collection</h2>
+
+                <div id="ao-import-anon" hidden>
+                    <a href="/api/auth/login?returnUrl=/" class="btn btn-primary">
+                        <i class="fa-solid fa-user me-1"></i><span data-i18n="import.loginRegister">Log in / Sign up</span>
+                    </a>
                 </div>
 
-                <div id="ao-filter-set" class="ao-image-filter-row mb-2"></div>
-
-                <div class="ao-filter-row-combo mb-2">
-                    <div id="ao-filter-faction" class="ao-icon-filter-row"></div>
-                    <span class="ao-filter-sep"></span>
-                    <div id="ao-filter-rarity" class="ao-icon-filter-row"></div>
+                <div id="ao-import-auth" hidden>
+                    <p class="card-text text-body-secondary small mb-3" data-i18n-html="import.description">
+                        Import the <code>altered-personal-data-export.zip</code> file.
+                    </p>
+                    <form id="ao-import-form" class="d-flex flex-column gap-3">
+                        <input id="ao-import-file" type="file" name="file" accept=".zip,application/zip" required class="form-control" />
+                        <div class="form-check">
+                            <input id="ao-import-terms" type="checkbox" class="form-check-input" />
+                            <label for="ao-import-terms" class="form-check-label" data-i18n="import.termsAccept">I accept the terms above.</label>
+                        </div>
+                        <button id="ao-import-submit" type="submit" class="btn btn-primary align-self-start" disabled>
+                            <i class="fa-solid fa-upload me-1"></i><span data-i18n="import.button">Import</span>
+                        </button>
+                    </form>
                 </div>
 
-                <div id="ao-filter-type-row" class="ao-icon-filter-row mb-2"></div>
-
-                <button type="button" id="ao-filter-reset" class="btn btn-sm btn-outline-secondary">
-                    <i class="fa-solid fa-arrow-rotate-left me-1"></i><span data-i18n="collection.reset">Reset filters</span>
-                </button>
-
-                <!-- Variation/subtype/numeric-range filters: parked for now, not linked from
-                     anywhere (no visible toggle) — the elements stay so collection.js keeps
-                     working unchanged; re-expose by un-hiding a button that targets this again. -->
-                <div class="collapse" id="ao-filter-advanced">
-                    <div class="row g-3 mb-3 mt-3">
-                        <div class="col-6 col-md-6">
-                            <label class="small text-muted mb-1" data-i18n="collection.variation">Variation</label>
-                            <select id="ao-filter-variation" class="form-select form-select-sm" multiple size="4"></select>
-                        </div>
-                        <div class="col-6 col-md-6">
-                            <label class="small text-muted mb-1" data-i18n="collection.subtype">Subtype</label>
-                            <select id="ao-filter-subtype" class="form-select form-select-sm" multiple size="4"></select>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-6 col-md-2">
-                            <label class="small text-muted mb-1" data-i18n="collection.handCost">Hand cost</label>
-                            <div class="d-flex gap-1">
-                                <input type="number" min="0" id="ao-filter-maincost-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
-                                <input type="number" min="0" id="ao-filter-maincost-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="small text-muted mb-1" data-i18n="collection.reserveCost">Reserve cost</label>
-                            <div class="d-flex gap-1">
-                                <input type="number" min="0" id="ao-filter-recallcost-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
-                                <input type="number" min="0" id="ao-filter-recallcost-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="small text-muted mb-1" data-i18n="collection.forestPower">Forest power</label>
-                            <div class="d-flex gap-1">
-                                <input type="number" min="0" id="ao-filter-forest-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
-                                <input type="number" min="0" id="ao-filter-forest-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="small text-muted mb-1" data-i18n="collection.mountainPower">Mountain power</label>
-                            <div class="d-flex gap-1">
-                                <input type="number" min="0" id="ao-filter-mountain-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
-                                <input type="number" min="0" id="ao-filter-mountain-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="small text-muted mb-1" data-i18n="collection.oceanPower">Ocean power</label>
-                            <div class="d-flex gap-1">
-                                <input type="number" min="0" id="ao-filter-ocean-min" class="form-control form-control-sm" data-i18n-placeholder="collection.min" placeholder="Min">
-                                <input type="number" min="0" id="ao-filter-ocean-max" class="form-control form-control-sm" data-i18n-placeholder="collection.max" placeholder="Max">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="ao-import-status" class="mt-3" role="status" aria-live="polite"></div>
             </div>
-
-            <div id="ao-collection-count" class="text-muted small mb-1"></div>
-            <div id="ao-collection-empty" class="text-muted" hidden data-i18n="collection.empty">No cards match these filters.</div>
-            <div id="ao-collection-grid" class="row g-3"></div>
-        </div>
+        </section>
     </main>
 
     <footer class="ao-footer">
         <img src="https://altered.re/uploads/editor/20260514_085456_96ed3e02.png" alt="Altered Fan Content" class="ao-footer-logo">
     </footer>
 
-    <div id="ao-opener-backdrop" class="ao-opener-backdrop" hidden>
-        <div class="ao-opener-stage">
-            <div id="ao-opener-card" class="ao-opener-card ao-tilt-card"></div>
-        </div>
-    </div>
-
     <script src="/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/card-renderer-loader.js"></script>
     <script src="/js/i18n.js" defer></script>
     <script src="/js/app.js" defer></script>
-    <script src="/js/card-tilt.js" defer></script>
-    <script src="/js/collection.js" defer></script>
 </body>
 </html>

@@ -92,7 +92,7 @@ public static class BoosterEndpoints
             }).ToList();
 
             return Results.Ok(opened);
-        }).RequireAuthorization(AuthConstants.WritePolicy);
+        }).RequireAuthorization(AuthConstants.ReadPolicy);
 
         return routes;
     }
