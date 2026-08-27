@@ -45,12 +45,20 @@ public static class BoosterEndpoints
             BoosterService boosters,
             OwnershipDbContext db,
             CardMetadataBackfiller backfiller,
+            ILogger<Program> logger,
             CancellationToken ct) =>
         {
             if (request.Quantity < 1)
                 return Results.BadRequest("Quantity must be at least 1.");
 
+            // TEMP diagnostics — see BoosterService.OpenAsync for the matching breakdown
+            // of what happens inside the transaction. This wraps the whole request so we
+            // can tell whether the slowness is inside OpenAsync or in what comes after it
+            // (user provisioning, backfill, catalog fetch). Remove once resolved.
+            var requestSw = System.Diagnostics.Stopwatch.StartNew();
+
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            var userIdMs = requestSw.ElapsedMilliseconds;
 
             IReadOnlyList<string> cardReferences;
             try
@@ -96,6 +104,10 @@ public static class BoosterEndpoints
                     CardLocalization.Localize(card?.ImagePath, loc),
                     CardReferenceParser.IsUnique(r));
             }).ToList();
+
+            logger.LogInformation(
+                "BoosterOpen endpoint timing: userProvision={UserIdMs}ms total={TotalMs}ms (see BoosterService log above for the reserve/append split within OpenAsync)",
+                userIdMs, requestSw.ElapsedMilliseconds);
 
             return Results.Ok(opened);
         }).RequireAuthorization(AuthConstants.ReadPolicy);
