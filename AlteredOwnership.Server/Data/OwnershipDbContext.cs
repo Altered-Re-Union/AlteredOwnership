@@ -89,7 +89,14 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.HasKey(x => x.CardReference);
             e.Property(x => x.Set).IsRequired();
             e.Property(x => x.Faction).IsRequired();
-            e.HasIndex(x => new { x.Set, x.IsDistributed });
+            e.Property(x => x.RandomKey).HasDefaultValueSql("random()");
+            // One index per filter shape ReserveRandomAsync actually uses (Set-only,
+            // Faction-only, or neither — see BoosterCatalog, no booster type filters on
+            // both at once): each lets the ">= anchor ORDER BY RandomKey LIMIT 1" /
+            // wraparound queries do an index range scan instead of a full sort.
+            e.HasIndex(x => new { x.Set, x.IsDistributed, x.RandomKey });
+            e.HasIndex(x => new { x.Faction, x.IsDistributed, x.RandomKey });
+            e.HasIndex(x => new { x.IsDistributed, x.RandomKey });
         });
     }
 

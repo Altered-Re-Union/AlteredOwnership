@@ -12,4 +12,13 @@ public class UniqueCardStock
     public string Faction { get; set; } = default!;
 
     public bool IsDistributed { get; set; }
+
+    // A random anchor assigned once per row (DB default `random()`, so every row —
+    // including the ~5.4M seeded ones — gets its own independent, immutable value).
+    // UniqueStockService.ReserveRandomAsync uses it to pick a uniformly random
+    // undistributed row via an indexed range scan instead of `ORDER BY random()`,
+    // which forces Postgres to compute+sort a random value for every candidate row —
+    // fine on a small table, ~1-2s per draw at this table's real size (measured in
+    // prod). See UniqueStockService for the query shape this column supports.
+    public double RandomKey { get; set; }
 }
