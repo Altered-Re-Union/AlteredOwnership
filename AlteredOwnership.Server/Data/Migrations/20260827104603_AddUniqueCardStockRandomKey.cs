@@ -6,22 +6,30 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AlteredOwnership.Server.Data.Migrations
 {
     /// <inheritdoc />
-    // Hand-edited after the first prod attempt timed out: `ADD COLUMN ... DEFAULT
-    // (random())` forces Postgres to rewrite the whole table to compute a value for
-    // every existing row, and at ~5.4M rows that took longer than the migration
-    // runner's 30s command timeout (confirmed in prod logs — "canceling statement due
-    // to user request" after ~30s on exactly that ALTER TABLE). Restructured into
-    // steps no single command should come close to that budget for:
-    //   1. add the column nullable, no default (metadata-only, instant)
-    //   2. backfill in bounded batches — many small UPDATEs (each its own command, so
-    //      each gets its own fresh 30s budget) instead of one all-at-once statement
-    //   3. only now enforce NOT NULL (a read-only validation scan, not a rewrite) and
-    //      set the default for future inserts (metadata-only)
-    //   4. build the three new indexes CONCURRENTLY — avoids the exclusive-ish lock a
-    //      plain CREATE INDEX would hold for the whole build, which would otherwise
-    //      stall every live booster-open (an UPDATE on this same table) for as long as
-    //      each index takes to build. CONCURRENTLY cannot run inside a transaction
-    //      block, hence suppressTransaction: true on those three calls only.
+    // Hand-edited twice now:
+    //
+    // 1st: the original `ADD COLUMN ... DEFAULT (random())` forces Postgres to rewrite
+    // the whole table to compute a value for every existing row, and at ~5.4M rows that
+    // took longer than the migration runner's 30s command timeout ("canceling statement
+    // due to user request" after ~30s on exactly that ALTER TABLE, confirmed in prod
+    // logs) — restructured into: add the column nullable (instant), backfill in bounded
+    // batches (many small UPDATEs, each its own command/timeout budget), only then
+    // enforce NOT NULL + SET DEFAULT, then build the three new indexes CONCURRENTLY so
+    // live booster-opens (which UPDATE this same table) never stall behind an index
+    // build's lock.
+    //
+    // 2nd: everything up to (not including) the first CONCURRENTLY statement runs in one
+    // transaction and committed successfully in prod — then one of the three
+    // CREATE INDEX CONCURRENTLY calls failed. CONCURRENTLY can't run in a transaction, so
+    // EF never got to mark this migration as applied, and the whole Up() reran from the
+    // top on every retry — including DropIndex, which now failed every time ("index ...
+    // does not exist") since the already-committed part had already dropped it, crash-
+    // looping the migrations container indefinitely. Every statement below is now
+    // idempotent (IF EXISTS / IF NOT EXISTS, or naturally a no-op on re-run) specifically
+    // so a retry from ANY partial state — including one left by a previously interrupted
+    // CONCURRENTLY build, which Postgres leaves behind as a real but INVALID index of
+    // that same name, not merely absent — always converges instead of getting stuck
+    // re-failing on the same non-idempotent step.
     public partial class AddUniqueCardStockRandomKey : Migration
     {
         // ~5,455,928 rows in prod today; 250k/batch × 100 batches = 25M capacity — a
@@ -39,11 +47,9 @@ namespace AlteredOwnership.Server.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_UniqueCardStock_Set_IsDistributed",
-                table: "UniqueCardStock");
+            migrationBuilder.Sql("""DROP INDEX IF EXISTS "IX_UniqueCardStock_Set_IsDistributed";""");
 
-            migrationBuilder.Sql("""ALTER TABLE "UniqueCardStock" ADD "RandomKey" double precision;""");
+            migrationBuilder.Sql("""ALTER TABLE "UniqueCardStock" ADD COLUMN IF NOT EXISTS "RandomKey" double precision;""");
 
             foreach (var sql in BuildBackfillBatches())
                 migrationBuilder.Sql(sql);
@@ -51,11 +57,30 @@ namespace AlteredOwnership.Server.Data.Migrations
             migrationBuilder.Sql("""ALTER TABLE "UniqueCardStock" ALTER COLUMN "RandomKey" SET NOT NULL;""");
             migrationBuilder.Sql("""ALTER TABLE "UniqueCardStock" ALTER COLUMN "RandomKey" SET DEFAULT random();""");
 
+            // Unconditional drop-then-create rather than "CREATE ... CONCURRENTLY IF NOT
+            // EXISTS": IF NOT EXISTS only checks the name, so it would leave a prior
+            // interrupted build's INVALID index (still present under that name, per
+            // Postgres) exactly as broken as it found it. Dropping first — a no-op via
+            // IF EXISTS when there's nothing there yet — makes every one of these three
+            // always converge to a fresh, valid index regardless of what state a retry
+            // finds them in. Both DROP and CREATE CONCURRENTLY must run outside a
+            // transaction block, hence suppressTransaction: true throughout this group.
+            migrationBuilder.Sql(
+                """DROP INDEX CONCURRENTLY IF EXISTS "IX_UniqueCardStock_Faction_IsDistributed_RandomKey";""",
+                suppressTransaction: true);
             migrationBuilder.Sql(
                 """CREATE INDEX CONCURRENTLY "IX_UniqueCardStock_Faction_IsDistributed_RandomKey" ON "UniqueCardStock" ("Faction", "IsDistributed", "RandomKey");""",
                 suppressTransaction: true);
+
+            migrationBuilder.Sql(
+                """DROP INDEX CONCURRENTLY IF EXISTS "IX_UniqueCardStock_IsDistributed_RandomKey";""",
+                suppressTransaction: true);
             migrationBuilder.Sql(
                 """CREATE INDEX CONCURRENTLY "IX_UniqueCardStock_IsDistributed_RandomKey" ON "UniqueCardStock" ("IsDistributed", "RandomKey");""",
+                suppressTransaction: true);
+
+            migrationBuilder.Sql(
+                """DROP INDEX CONCURRENTLY IF EXISTS "IX_UniqueCardStock_Set_IsDistributed_RandomKey";""",
                 suppressTransaction: true);
             migrationBuilder.Sql(
                 """CREATE INDEX CONCURRENTLY "IX_UniqueCardStock_Set_IsDistributed_RandomKey" ON "UniqueCardStock" ("Set", "IsDistributed", "RandomKey");""",
@@ -90,14 +115,10 @@ namespace AlteredOwnership.Server.Data.Migrations
                 """DROP INDEX CONCURRENTLY IF EXISTS "IX_UniqueCardStock_Set_IsDistributed_RandomKey";""",
                 suppressTransaction: true);
 
-            migrationBuilder.DropColumn(
-                name: "RandomKey",
-                table: "UniqueCardStock");
+            migrationBuilder.Sql("""ALTER TABLE "UniqueCardStock" DROP COLUMN IF EXISTS "RandomKey";""");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UniqueCardStock_Set_IsDistributed",
-                table: "UniqueCardStock",
-                columns: new[] { "Set", "IsDistributed" });
+            migrationBuilder.Sql(
+                """CREATE INDEX IF NOT EXISTS "IX_UniqueCardStock_Set_IsDistributed" ON "UniqueCardStock" ("Set", "IsDistributed");""");
         }
     }
 }
