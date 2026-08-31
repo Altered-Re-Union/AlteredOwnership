@@ -302,10 +302,18 @@ public class AltArtService(OwnershipDbContext db)
         return slots;
     }
 
-    // The group's default art: the earliest (lowest SortOrder) non-promo printing, or —
-    // if every printing in the group is a promo — the earliest printing overall.
+    // The group's default art: the untracked "everyone has it" printing if the group has
+    // one (there's normally at most one — see CardReferenceParser.IsAlternateArt) so new
+    // players are never defaulted onto a scarce print they may own zero copies of. Only
+    // when a group is made entirely of tracked/alternate prints does this fall back to
+    // the earliest (lowest SortOrder) non-promo one, or the earliest overall if every
+    // printing is a promo.
     private static CardArtCatalogEntry ResolveDefaultRow(IReadOnlyList<CardArtCatalogEntry> groupRows)
     {
+        var untracked = groupRows.Where(r => !CardReferenceParser.IsAlternateArt(r.Reference)).ToList();
+        if (untracked.Count > 0)
+            return untracked.OrderBy(r => r.SortOrder).First();
+
         var nonPromo = groupRows.Where(r => !r.IsPromo).ToList();
         var pool = nonPromo.Count > 0 ? nonPromo : groupRows;
         return pool.OrderBy(r => r.SortOrder).First();
