@@ -34,5 +34,10 @@
          migrations bundle with no extra deploy step. -->
     <EmbeddedResource Include="Data/Seed/UniqueCardStock.seed.csv.gz"
                        LogicalName="AlteredOwnership.Server.Data.Seed.UniqueCardStock.seed.csv.gz" />
+    <!-- Card art catalog: every known non-unique printing of every card, built from
+         CardsData's CardFamilies.csv + per-set NonUniquePrints.csv — applied by the
+         SeedCardArtCatalog migration. -->
+    <EmbeddedResource Include="Data/Seed/CardArtCatalog.seed.csv.gz"
+                       LogicalName="AlteredOwnership.Server.Data.Seed.CardArtCatalog.seed.csv.gz" />
   </ItemGroup>
 </Project>

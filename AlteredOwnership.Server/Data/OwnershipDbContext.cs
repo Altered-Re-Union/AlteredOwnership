@@ -14,6 +14,8 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
     public DbSet<BoosterInventory> BoosterInventories => Set<BoosterInventory>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<UniqueCardStock> UniqueCardStock => Set<UniqueCardStock>();
+    public DbSet<CardArtCatalogEntry> CardArtCatalog => Set<CardArtCatalogEntry>();
+    public DbSet<UserCardArtPreference> UserCardArtPreferences => Set<UserCardArtPreference>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -97,6 +99,24 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.HasIndex(x => new { x.Set, x.IsDistributed, x.RandomKey });
             e.HasIndex(x => new { x.Faction, x.IsDistributed, x.RandomKey });
             e.HasIndex(x => new { x.IsDistributed, x.RandomKey });
+        });
+
+        b.Entity<CardArtCatalogEntry>(e =>
+        {
+            e.HasKey(x => x.Reference);
+            e.Property(x => x.CardType).IsRequired();
+            e.Property(x => x.Faction).IsRequired();
+            e.Property(x => x.Rarity).IsRequired();
+            e.Property(x => x.Set).IsRequired();
+            e.HasIndex(x => new { x.FamilyId, x.Faction, x.Rarity });
+
+            e.Property(x => x.FamilyName).HasColumnType("jsonb").HasConversion(LocalizedTextConverter, LocalizedTextComparer);
+        });
+
+        b.Entity<UserCardArtPreference>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.FamilyId, x.Faction, x.Rarity, x.SlotIndex });
+            e.Property(x => x.PreferredReference).IsRequired();
         });
     }
 

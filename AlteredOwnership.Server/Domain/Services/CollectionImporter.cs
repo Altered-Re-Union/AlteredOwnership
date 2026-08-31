@@ -20,7 +20,7 @@ public class ConflictingUniquesException(IReadOnlyList<string> references)
     public IReadOnlyList<string> References { get; } = references;
 }
 
-public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
+public class CollectionImporter(EventAppender appender, OwnershipDbContext db, AltArtPreferenceReconciler altArtPreferences)
 {
     public async Task ImportAsync(Guid userId, EquinoxImportEvent.PayloadV1 payload, DateTimeOffset exportedAt, CancellationToken ct)
     {
@@ -98,5 +98,7 @@ public class CollectionImporter(EventAppender appender, OwnershipDbContext db)
 
         foreach (var orphan in currentRows.Values)
             db.CardOwnerships.Remove(orphan);
+
+        await altArtPreferences.ReconcileAsync(userId, expected, ct);
     }
 }

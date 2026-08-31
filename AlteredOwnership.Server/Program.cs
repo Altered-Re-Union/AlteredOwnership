@@ -63,6 +63,8 @@ builder.Services.AddScoped<EventAppender>();
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<UniqueStockService>();
 builder.Services.AddScoped<EventHistoryReader>();
+builder.Services.AddScoped<AltArtService>();
+builder.Services.AddScoped<AltArtPreferenceReconciler>();
 builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
 
 builder.Services.AddOptions<ExternalHostsOptions>()
@@ -216,6 +218,7 @@ app.MapCollectionEndpoints();
 app.MapAdminEndpoints();
 app.MapHistoryEndpoints();
 app.MapBoosterEndpoints();
+app.MapAltArtEndpoints();
 app.MapDefaultEndpoints();
 
 // Surfaces a subset of ExternalHosts to the SPA so wwwroot/* stays env-agnostic.
