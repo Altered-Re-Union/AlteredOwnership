@@ -83,8 +83,13 @@ public class AltArtService(OwnershipDbContext db)
             var maxSlots = AltArtRules.MaxSlots(groupRows[0].CardType);
             var defaultReference = ResolveDefaultRow(groupRows).Reference;
 
+            // The default print always sorts first regardless of its own SortOrder — a
+            // caller-facing "leftmost = standard art" guarantee that plain SortOrder
+            // can't provide once a genuinely tracked alt-art print happens to have a
+            // lower SortOrder than the group's untracked default (see ResolveDefaultRow).
             var options = groupRows
-                .OrderBy(r => r.SortOrder)
+                .OrderBy(r => r.Reference == defaultReference ? 0 : 1)
+                .ThenBy(r => r.SortOrder)
                 .Select(r =>
                 {
                     var isInfinite = AltArtRules.IsInfinite(r);
