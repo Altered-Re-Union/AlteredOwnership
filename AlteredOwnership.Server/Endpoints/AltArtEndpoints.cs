@@ -83,7 +83,11 @@ public static class AltArtEndpoints
             }
 
             return Results.NoContent();
-        }).RequireAuthorization(AuthConstants.WritePolicy);
+        })
+        // Lax like boosters-open: this must be callable by third-party Bearer clients
+        // (e.g. alteredcore-website's server-side proxy), which WritePolicy — cookie-only
+        // by design — would always reject with 401 regardless of token scope.
+        .RequireAuthorization(AuthConstants.ReadPolicy);
 
         group.MapPost("apply-to-deck", async (
             List<OwnershipCheckItem> deck,
