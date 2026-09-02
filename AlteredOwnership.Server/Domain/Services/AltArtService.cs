@@ -177,11 +177,16 @@ public class AltArtService(OwnershipDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<List<OwnershipCheckItem>> ApplyToDeckAsync(
+    // Lines[i] corresponds exactly to deck[i] — callers that need to splice a rewritten
+    // reference back into a richer, deck[i]-shaped structure of their own (e.g. a BGA
+    // middleware rebuilding a nested per-type deck view) rely on this positional
+    // correlation, since a single input line can expand into several output lines
+    // (a multi-art group split across more than one chosen illustration).
+    public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
         Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
     {
         if (deck.Count == 0)
-            return [];
+            return new ApplyToDeckResponse([], []);
 
         var references = deck.Select(i => i.Reference).Distinct().ToList();
         var catalogByRef = await db.CardArtCatalog
@@ -198,13 +203,13 @@ public class AltArtService(OwnershipDbContext db)
 
         var prefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
 
-        var output = new List<OwnershipCheckItem>();
+        var lines = new List<IReadOnlyList<OwnershipCheckItem>>(deck.Count);
         var processedGroups = new HashSet<(int, string, string)>();
         foreach (var item in deck)
         {
             if (!catalogByRef.TryGetValue(item.Reference, out var entry))
             {
-                output.Add(item);
+                lines.Add([item]);
                 continue;
             }
 
@@ -212,7 +217,7 @@ public class AltArtService(OwnershipDbContext db)
             var groupRows = rowsByGroup[groupKey];
             if (groupRows.Select(r => r.Reference).Distinct().Count() <= 1)
             {
-                output.Add(item);
+                lines.Add([item]);
                 continue;
             }
 
@@ -233,18 +238,17 @@ public class AltArtService(OwnershipDbContext db)
             if (overflow > 0)
                 chosenCounts[defaultReference] = chosenCounts.GetValueOrDefault(defaultReference) + overflow;
 
-            foreach (var (reference, quantity) in chosenCounts)
-                output.Add(new OwnershipCheckItem(reference, quantity));
+            lines.Add(chosenCounts.Select(kv => new OwnershipCheckItem(kv.Key, kv.Value)).ToList());
         }
 
         // Tokens are never deck cards themselves (they're created by other cards'
         // effects, never listed as an owned/played copy), so they can never arrive via
-        // a deck's own item list — add each token the player has explicitly chosen an
-        // art for as its own line item instead, one copy per token (max 1 slot).
-        foreach (var tokenItem in await ResolveSelectedTokenItemsAsync(prefsByGroup, processedGroups, ct))
-            output.Add(tokenItem);
+        // a deck's own item list — surfaced separately (never mixed into Lines, which
+        // stays strictly positional against the input) as one line item per token the
+        // player has explicitly chosen an art for, one copy per token (max 1 slot).
+        var tokens = await ResolveSelectedTokenItemsAsync(prefsByGroup, processedGroups, ct);
 
-        return output;
+        return new ApplyToDeckResponse(lines, tokens);
     }
 
     private async Task<List<OwnershipCheckItem>> ResolveSelectedTokenItemsAsync(

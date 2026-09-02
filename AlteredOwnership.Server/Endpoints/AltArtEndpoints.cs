@@ -34,6 +34,15 @@ public record AltArtOptionsResponse(
 public record SetAltArtPreferenceRequest(
     int FamilyId, string Faction, string Rarity, IReadOnlyList<string?> SlotReferences);
 
+// Response for apply-to-deck. Lines[i] corresponds exactly to the i-th item of the
+// request body — a single input line can expand into several output lines when its
+// multi-art group's exemplaires are split across more than one chosen illustration, so
+// a flat list can't preserve this correlation. Tokens are never part of the input deck
+// (they're created by other cards' effects, not owned/played copies), so they're
+// surfaced separately rather than appended to some arbitrary line.
+public record ApplyToDeckResponse(
+    IReadOnlyList<IReadOnlyList<OwnershipCheckItem>> Lines, IReadOnlyList<OwnershipCheckItem> Tokens);
+
 public static class AltArtEndpoints
 {
     public static IEndpointRouteBuilder MapAltArtEndpoints(this IEndpointRouteBuilder routes)

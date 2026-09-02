@@ -42,6 +42,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     private record SetAltArtPreferenceRequest(int FamilyId, string Faction, string Rarity, List<string?> SlotReferences);
     private record OwnershipCheckItem(string Reference, int Quantity);
     private record OwnershipShortfall(string Reference, int Requested, int Owned);
+    private record ApplyToDeckResponse(List<List<OwnershipCheckItem>> Lines, List<OwnershipCheckItem> Tokens);
     private record CsrfResponse(string Token);
 
     private const string Header = "card_reference;card_name;rarity;quantity\n";
@@ -289,12 +290,18 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         using var response = await ApplyToDeckAsync(user, deck);
         response.EnsureSuccessStatusCode();
 
-        var result = (await response.Content.ReadFromJsonAsync<List<OwnershipCheckItem>>())!;
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
 
-        Assert.Contains(result, i => i.Reference == LandmarkAlt && i.Quantity == 2);
-        Assert.Contains(result, i => i.Reference == LandmarkDefault && i.Quantity == 1);
-        Assert.Contains(result, i => i.Reference == MonoArt && i.Quantity == 2);
-        Assert.Contains(result, i => i.Reference == "ALT_NOT_IN_CATALOG_X" && i.Quantity == 1);
+        // Lines[i] corresponds positionally to deck[i] — the multi-art family (index 0)
+        // splits into 2 lines, the other two inputs (indexes 1-2) each stay a single line.
+        Assert.Equal(3, result.Lines.Count);
+        Assert.Contains(result.Lines[0], i => i.Reference == LandmarkAlt && i.Quantity == 2);
+        Assert.Contains(result.Lines[0], i => i.Reference == LandmarkDefault && i.Quantity == 1);
+        var monoLine = Assert.Single(result.Lines[1]);
+        Assert.Equal(new OwnershipCheckItem(MonoArt, 2), monoLine);
+        var unknownLine = Assert.Single(result.Lines[2]);
+        Assert.Equal(new OwnershipCheckItem("ALT_NOT_IN_CATALOG_X", 1), unknownLine);
+        Assert.Empty(result.Tokens);
     }
 
     [Fact]
@@ -354,10 +361,12 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         using var response = await ApplyToDeckAsync(user, deck);
         response.EnsureSuccessStatusCode();
 
-        var result = (await response.Content.ReadFromJsonAsync<List<OwnershipCheckItem>>())!;
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
 
-        Assert.Contains(result, i => i.Reference == MonoArt && i.Quantity == 2);
-        Assert.Contains(result, i => i.Reference == TokenDefault && i.Quantity == 1);
+        var monoLine = Assert.Single(Assert.Single(result.Lines));
+        Assert.Equal(new OwnershipCheckItem(MonoArt, 2), monoLine);
+        var tokenLine = Assert.Single(result.Tokens);
+        Assert.Equal(new OwnershipCheckItem(TokenDefault, 1), tokenLine);
     }
 
     [Fact]
