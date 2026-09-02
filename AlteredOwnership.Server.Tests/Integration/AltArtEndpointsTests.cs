@@ -268,7 +268,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     }
 
     [Fact]
-    public async Task ApplyToDeck_splits_quantity_across_chosen_arts_and_passes_through_the_rest()
+    public async Task ApplyToDeck_falls_back_to_base_art_for_copies_of_the_decks_own_choice_not_owned()
     {
         const string user = "alt-art-deck-user";
         await ImportAsync(
@@ -276,14 +276,13 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
             $"{LandmarkAlt};Icebound Tundra;Rare;2\n",
             user);
 
-        using var setResponse = await SetPreferenceAsync(user,
-            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, null]));
-        setResponse.EnsureSuccessStatusCode();
-
+        // No global preference set at all — the deck names its own chosen illustration
+        // directly (as the deckbuilder would), and apply-to-deck must check ownership of
+        // that exact reference, never resolve through UserCardArtPreference.
         var deck = new List<OwnershipCheckItem>
         {
-            new(LandmarkDefault, 3),   // multi-art family -> rewritten per the user's slots
-            new(MonoArt, 2),           // single printing -> untouched
+            new(LandmarkAlt, 3),      // deck wants 3 of the alt art, player owns only 2
+            new(MonoArt, 2),          // single printing -> untouched
             new("ALT_NOT_IN_CATALOG_X", 1), // unknown reference -> untouched
         };
 
@@ -292,8 +291,8 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
 
         var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
 
-        // Lines[i] corresponds positionally to deck[i] — the multi-art family (index 0)
-        // splits into 2 lines, the other two inputs (indexes 1-2) each stay a single line.
+        // Lines[i] corresponds positionally to deck[i] — the shortfall (index 0) splits
+        // into 2 lines, the other two inputs (indexes 1-2) each stay a single line.
         Assert.Equal(3, result.Lines.Count);
         Assert.Contains(result.Lines[0], i => i.Reference == LandmarkAlt && i.Quantity == 2);
         Assert.Contains(result.Lines[0], i => i.Reference == LandmarkDefault && i.Quantity == 1);
@@ -302,6 +301,44 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         var unknownLine = Assert.Single(result.Lines[2]);
         Assert.Equal(new OwnershipCheckItem("ALT_NOT_IN_CATALOG_X", 1), unknownLine);
         Assert.Empty(result.Tokens);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_leaves_the_decks_choice_untouched_when_fully_owned()
+    {
+        const string user = "alt-art-deck-fully-owned-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;3\n",
+            user);
+
+        var deck = new List<OwnershipCheckItem> { new(LandmarkAlt, 3) };
+
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+
+        var line = Assert.Single(Assert.Single(result.Lines));
+        Assert.Equal(new OwnershipCheckItem(LandmarkAlt, 3), line);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_never_touches_the_default_or_infinite_art_regardless_of_ownership()
+    {
+        const string user = "alt-art-deck-infinite-user";
+
+        // LandmarkDefault is untracked (infinite) -- never owned, yet must pass through
+        // unmodified, since there is no better fallback than itself.
+        var deck = new List<OwnershipCheckItem> { new(LandmarkDefault, 3) };
+
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+
+        var line = Assert.Single(Assert.Single(result.Lines));
+        Assert.Equal(new OwnershipCheckItem(LandmarkDefault, 3), line);
     }
 
     [Fact]
