@@ -43,6 +43,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     private record OwnershipCheckItem(string Reference, int Quantity);
     private record OwnershipShortfall(string Reference, int Requested, int Owned);
     private record ApplyToDeckResponse(List<List<OwnershipCheckItem>> Lines, List<OwnershipCheckItem> Tokens);
+    private record AltArtReferenceGroup(string Reference, int FamilyId, string Faction, string Rarity);
     private record CsrfResponse(string Token);
 
     private const string Header = "card_reference;card_name;rarity;quantity\n";
@@ -110,6 +111,16 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/alt-arts/apply-to-deck")
         {
             Content = JsonContent.Create(deck),
+        };
+        request.Headers.Add(TestAuthHandler.UserHeader, user);
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> ResolveReferencesAsync(string user, params string[] references)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/alt-arts/resolve-references")
+        {
+            Content = JsonContent.Create(references.ToList()),
         };
         request.Headers.Add(TestAuthHandler.UserHeader, user);
         return await _client.SendAsync(request);
@@ -404,6 +415,29 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         Assert.Equal(new OwnershipCheckItem(MonoArt, 2), monoLine);
         var tokenLine = Assert.Single(result.Tokens);
         Assert.Equal(new OwnershipCheckItem(TokenDefault, 1), tokenLine);
+    }
+
+    [Fact]
+    public async Task ResolveReferences_maps_multi_art_references_to_their_group_and_omits_the_rest()
+    {
+        const string user = "alt-art-resolve-user";
+        using var response = await ResolveReferencesAsync(
+            user, LandmarkDefault, LandmarkAlt, MonoArt, HeroAlt, "NOT_A_REAL_REFERENCE");
+        response.EnsureSuccessStatusCode();
+
+        var groups = (await response.Content.ReadFromJsonAsync<List<AltArtReferenceGroup>>())!;
+
+        var tundraGroup = groups.Single(g => g.Reference == LandmarkAlt);
+        Assert.Equal(new AltArtReferenceGroup(LandmarkAlt, 4, "LY", "R"), tundraGroup);
+        Assert.Contains(groups, g => g.Reference == LandmarkDefault);
+
+        // Mono-art (nothing to pick between), and unknown references, are simply absent.
+        Assert.DoesNotContain(groups, g => g.Reference == MonoArt);
+        Assert.DoesNotContain(groups, g => g.Reference == "NOT_A_REAL_REFERENCE");
+
+        // The hero group resolves too, distinct from the non-hero group above.
+        var heroGroup = groups.Single(g => g.Reference == HeroAlt);
+        Assert.Equal(new AltArtReferenceGroup(HeroAlt, 2, "LY", "C"), heroGroup);
     }
 
     [Fact]

@@ -13,6 +13,12 @@ public record AltArtFamilyResponse(
 // throughout this feature, no synthetic id.
 public record AltArtGroupKey(int FamilyId, string Faction, string Rarity);
 
+// Resolves one caller-supplied Reference to its multi-art group, for callers (the
+// deckbuilder) that only know a printing's exact Reference and not its
+// (FamilyId, Faction, Rarity) group key. References that aren't in the catalog, or
+// whose group has only one known illustration, are simply omitted from the response.
+public record AltArtReferenceGroup(string Reference, int FamilyId, string Faction, string Rarity);
+
 // One known printing within a group. OwnedQuantity is null when this printing is
 // owned in unlimited quantity by every player (see AltArtRules.IsInfinite). SortOrder
 // is CardsData's own chronological print id — callers needing "the standard/leftmost
@@ -58,6 +64,16 @@ public static class AltArtEndpoints
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             return Results.Ok(await altArts.GetFamiliesAsync(query, loc, ct));
         }).RequireAuthorization(AuthConstants.ReadPolicy);
+
+        group.MapPost("resolve-references", async (
+            List<string> references,
+            AltArtService altArts,
+            CancellationToken ct) =>
+        {
+            return Results.Ok(await altArts.ResolveReferencesAsync(references, ct));
+        })
+        .RequireAuthorization(AuthConstants.ReadPolicy)
+        .DisableAntiforgery();
 
         group.MapPost("options", async (
             List<AltArtGroupKey> keys,

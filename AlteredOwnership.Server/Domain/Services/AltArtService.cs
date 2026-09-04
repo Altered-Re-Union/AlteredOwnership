@@ -48,6 +48,41 @@ public class AltArtService(OwnershipDbContext db)
         return results;
     }
 
+    // Reverse lookup for callers (the deckbuilder) that only know a printing's exact
+    // Reference, not its (FamilyId, Faction, Rarity) group — e.g. to look up the
+    // options for a specific deck card, or to resolve every card in a deck at once
+    // before calling GetOptionsAsync. Mono-art groups are excluded (same ">1 distinct
+    // illustration" rule as GetFamiliesAsync) since there's nothing to pick between.
+    public async Task<List<AltArtReferenceGroup>> ResolveReferencesAsync(
+        IReadOnlyList<string> references, CancellationToken ct)
+    {
+        if (references.Count == 0)
+            return [];
+
+        var distinctRefs = references.Distinct().ToList();
+        var matches = await db.CardArtCatalog
+            .Where(c => distinctRefs.Contains(c.Reference))
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        if (matches.Count == 0)
+            return [];
+
+        var familyIds = matches.Select(m => m.FamilyId).Distinct().ToList();
+        var groupSizes = (await db.CardArtCatalog
+                .Where(c => familyIds.Contains(c.FamilyId))
+                .AsNoTracking()
+                .Select(c => new { c.FamilyId, c.Faction, c.Rarity, c.Reference })
+                .ToListAsync(ct))
+            .GroupBy(r => (r.FamilyId, r.Faction, r.Rarity))
+            .ToDictionary(g => g.Key, g => g.Select(r => r.Reference).Distinct().Count());
+
+        return matches
+            .Where(m => groupSizes.GetValueOrDefault((m.FamilyId, m.Faction, m.Rarity)) > 1)
+            .Select(m => new AltArtReferenceGroup(m.Reference, m.FamilyId, m.Faction, m.Rarity))
+            .ToList();
+    }
+
     public async Task<List<AltArtOptionsResponse>> GetOptionsAsync(
         Guid userId, IReadOnlyList<AltArtGroupKey> keys, CancellationToken ct)
     {
