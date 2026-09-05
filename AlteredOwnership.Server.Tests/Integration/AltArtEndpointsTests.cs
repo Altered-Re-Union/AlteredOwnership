@@ -167,6 +167,18 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
             "/api/alt-arts/families?faction[]=LY&rarity[]=R&name=NoSuchCardName", user);
         var filtered = (await noMatch.Content.ReadFromJsonAsync<List<AltArtFamilyResponse>>())!;
         Assert.DoesNotContain(filtered, f => f.FamilyId == 4);
+
+        // The type[] filter matches this family's own CardType...
+        using var typeMatch = await Authenticated(HttpMethod.Get,
+            $"/api/alt-arts/families?faction[]=LY&rarity[]=R&type[]={tundra.CardType}", user);
+        var typeFiltered = (await typeMatch.Content.ReadFromJsonAsync<List<AltArtFamilyResponse>>())!;
+        Assert.Contains(typeFiltered, f => f.FamilyId == 4);
+
+        // ...and excludes it under any other type.
+        using var typeNoMatch = await Authenticated(HttpMethod.Get,
+            "/api/alt-arts/families?faction[]=LY&rarity[]=R&type[]=NOT_A_REAL_TYPE", user);
+        var typeUnfiltered = (await typeNoMatch.Content.ReadFromJsonAsync<List<AltArtFamilyResponse>>())!;
+        Assert.DoesNotContain(typeUnfiltered, f => f.FamilyId == 4);
     }
 
     private async Task<HttpResponseMessage> Authenticated(HttpMethod method, string url, string user)

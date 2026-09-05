@@ -19,6 +19,7 @@ public class AltArtService(OwnershipDbContext db)
     {
         IQueryable<CardArtCatalogEntry> q = db.CardArtCatalog.AsNoTracking();
         if (query.Factions.Count > 0) q = q.Where(c => query.Factions.Contains(c.Faction));
+        if (query.CardTypes.Count > 0) q = q.Where(c => query.CardTypes.Contains(c.CardType));
         if (query.Rarities.Count > 0) q = q.Where(c => query.Rarities.Contains(c.Rarity));
 
         // Grouping + the "> 1 distinct illustration" check need every matching row in

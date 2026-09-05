@@ -7,6 +7,7 @@ public sealed class AltArtFamilyQuery
 {
     public string? Name { get; init; }
     public IReadOnlyList<string> Factions { get; init; } = [];
+    public IReadOnlyList<string> CardTypes { get; init; } = [];
     public IReadOnlyList<string> Rarities { get; init; } = [];
     public NumericFilter MainCost { get; init; }
 
@@ -19,6 +20,7 @@ public sealed class AltArtFamilyQuery
         {
             Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim(),
             Factions = Array(q, "faction[]"),
+            CardTypes = Array(q, "type[]"),
             Rarities = Array(q, "rarity[]"),
             MainCost = Numeric(q, "mainCost"),
         };
