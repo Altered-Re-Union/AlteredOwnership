@@ -41,12 +41,13 @@
                 <div class="card-body">
                     <h3 class="h6 card-title">Joueurs ciblés</h3>
 
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-1">
                         <input id="ao-search-input" type="text" class="form-control" placeholder="Email ou pseudo">
                         <button id="ao-search-btn" class="btn btn-outline-secondary" type="button">
                             <i class="fa-solid fa-magnifying-glass"></i> Rechercher
                         </button>
                     </div>
+                    <div class="form-text mb-2">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
                     <div id="ao-search-results" class="list-group mb-3"></div>
 
                     <label for="ao-manual-ids" class="form-label small text-muted">
@@ -74,8 +75,10 @@
 
                     <div id="ao-form-card" class="d-flex flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-card-reference">Référence de la carte</label>
-                            <input id="ao-card-reference" type="text" class="form-control" placeholder="ALT_CORE_B_AX_04_C">
+                            <label class="form-label" for="ao-card-reference">Référence(s) de la carte</label>
+                            <textarea id="ao-card-reference" class="form-control" rows="2"
+                                placeholder="ALT_CORE_B_AX_04_C, ALT_CORE_B_AX_05_C ALT_CORE_B_AX_06_C ..."></textarea>
+                            <div class="form-text">Plusieurs références possibles, séparées par espace, virgule ou point-virgule.</div>
                         </div>
                         <div>
                             <label class="form-label" for="ao-card-quantity">Quantité (par joueur)</label>
@@ -125,12 +128,13 @@
                     </div>
 
                     <h3 class="h6 card-title">Promouvoir un joueur</h3>
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-1">
                         <input id="ao-admin-search-input" type="text" class="form-control" placeholder="Email ou pseudo">
                         <button id="ao-admin-search-btn" class="btn btn-outline-secondary" type="button">
                             <i class="fa-solid fa-magnifying-glass"></i> Rechercher
                         </button>
                     </div>
+                    <div class="form-text mb-2">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
                     <div id="ao-admin-search-results" class="list-group mb-3"></div>
 
                     <label for="ao-admin-manual-id" class="form-label small text-muted">

@@ -171,10 +171,13 @@
     };
 
     document.getElementById('ao-card-add-btn')?.addEventListener('click', () => {
-        const reference = document.getElementById('ao-card-reference').value.trim();
+        // Accepts one or several references at once, separated by any mix of spaces,
+        // commas, semicolons or newlines (e.g. pasted from a spreadsheet column).
+        const references = document.getElementById('ao-card-reference').value
+            .split(/[\s,;]+/).map((r) => r.trim()).filter(Boolean);
         const quantity = parseInt(document.getElementById('ao-card-quantity').value, 10);
-        if (!reference || !(quantity > 0)) { setStatus('error', 'Référence et quantité requises.'); return; }
-        rewardItems.push({ type: 'card', reference, quantity });
+        if (!references.length || !(quantity > 0)) { setStatus('error', 'Référence et quantité requises.'); return; }
+        references.forEach((reference) => rewardItems.push({ type: 'card', reference, quantity }));
         renderRewardItems();
         document.getElementById('ao-card-reference').value = '';
         document.getElementById('ao-card-quantity').value = '1';

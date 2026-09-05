@@ -22,9 +22,11 @@ public class StubKeycloakAdminClient : IKeycloakAdminClient
     public Task<KeycloakUserDto?> GetByIdAsync(string keycloakId, CancellationToken ct) =>
         Task.FromResult(_users.GetValueOrDefault(keycloakId));
 
+    // Mirrors the real KeycloakAdminClient: pseudo search is an exact match (its infix
+    // form doesn't work against the real realm), unlike email search below.
     public Task<IReadOnlyList<KeycloakUserDto>> SearchByPseudoAsync(string pseudo, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<KeycloakUserDto>>(_users.Values
-            .Where(u => u.Pseudo is not null && u.Pseudo.Contains(pseudo, StringComparison.OrdinalIgnoreCase))
+            .Where(u => u.Pseudo is not null && u.Pseudo.Equals(pseudo, StringComparison.OrdinalIgnoreCase))
             .ToList());
 
     public Task<IReadOnlyList<KeycloakUserDto>> SearchByEmailAsync(string email, CancellationToken ct) =>

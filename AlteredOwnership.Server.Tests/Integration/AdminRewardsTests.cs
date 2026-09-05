@@ -28,6 +28,14 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         .KnownUser("reward-target-mixed", email: "d@example.com", pseudo: "PlayerD");
     private readonly HttpClient _client;
 
+    // Every fixture reference this file grants, so the reward endpoint's "is this
+    // reference real" check (against UniqueCardStock/CardArtCatalog) passes for them —
+    // none of these are real CardsData rows, so they aren't in the seeded catalogs.
+    private static readonly string[] NonUniqueFixtureReferences =
+        ["ALT_ALIZE_B_AX_60_C", "ALT_ALIZE_B_AX_63_C", "ALT_ALIZE_B_AX_64_C", "ALT_ALIZE_B_AX_65_C"];
+    private static readonly string[] UniqueFixtureReferences =
+        ["ALT_ALIZE_B_AX_61_U_1", "ALT_ALIZE_B_AX_62_U_2"];
+
     public AdminRewardsTests(OwnershipApiFactory factory)
     {
         _factory = factory;
@@ -38,6 +46,7 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
         })).CreateClient();
 
         SeedAdminAsync(AdminUser).GetAwaiter().GetResult();
+        SeedCardFixturesAsync().GetAwaiter().GetResult();
     }
 
     private async Task SeedAdminAsync(string keycloakId)
@@ -53,6 +62,37 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
             Role = UserRole.Admin,
             CreatedAt = DateTimeOffset.UtcNow,
         });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SeedCardFixturesAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+
+        foreach (var reference in NonUniqueFixtureReferences)
+        {
+            if (await db.CardArtCatalog.AnyAsync(c => c.Reference == reference)) continue;
+            db.CardArtCatalog.Add(new CardArtCatalogEntry
+            {
+                Reference = reference,
+                FamilyId = -1,
+                CardType = "Character",
+                Faction = "AX",
+                Rarity = "C",
+                Set = "ALIZE",
+            });
+        }
+        foreach (var reference in UniqueFixtureReferences)
+        {
+            if (await db.UniqueCardStock.AnyAsync(u => u.CardReference == reference)) continue;
+            db.UniqueCardStock.Add(new UniqueCardStock
+            {
+                CardReference = reference,
+                Set = "ALIZE",
+                Faction = "AX",
+            });
+        }
         await db.SaveChangesAsync();
     }
 
@@ -173,6 +213,23 @@ public class AdminRewardsTests : IClassFixture<OwnershipApiFactory>
 
         var collectionA = await GetCollectionAsync("reward-target-a");
         Assert.DoesNotContain(collectionA, c => c.Reference == "ALT_ALIZE_B_AX_63_C");
+    }
+
+    [Fact]
+    public async Task Unknown_card_reference_is_rejected()
+    {
+        var response = await PostRewardAsync(new
+        {
+            acquiredFrom = "Test event",
+            keycloakUserIds = new[] { "reward-target-a" },
+            cards = new[] { new { cardReference = "ALT_NOT_A_REAL_REFERENCE", quantity = 1 } },
+            boosters = Array.Empty<object>(),
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var collectionA = await GetCollectionAsync("reward-target-a");
+        Assert.DoesNotContain(collectionA, c => c.Reference == "ALT_NOT_A_REAL_REFERENCE");
     }
 
     [Fact]

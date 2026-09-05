@@ -106,6 +106,7 @@ public static class AdminEndpoints
             RewardBatchRequest request,
             UserProvisioningService provisioning,
             RewardService rewards,
+            OwnershipDbContext db,
             CancellationToken ct) =>
         {
             var targetIds = request.KeycloakUserIds.Distinct().ToList();
@@ -120,6 +121,25 @@ public static class AdminEndpoints
             var unknownBoosterType = request.Boosters.FirstOrDefault(b => BoosterCatalog.Find(b.BoosterTypeKey) is null);
             if (unknownBoosterType is not null)
                 return Results.BadRequest($"Unknown booster type '{unknownBoosterType.BoosterTypeKey}'.");
+
+            // Every given reference must be a real printing — either a unique (stock
+            // ledger) or a non-unique one (art catalog, which covers base art too, not
+            // just alternates) — otherwise a typo would silently create an unownable
+            // card instead of failing loudly.
+            var cardReferences = request.Cards.Select(c => c.CardReference).Distinct().ToList();
+            if (cardReferences.Count > 0)
+            {
+                var knownReferences = await db.UniqueCardStock
+                    .Where(u => cardReferences.Contains(u.CardReference))
+                    .Select(u => u.CardReference)
+                    .Union(db.CardArtCatalog
+                        .Where(c => cardReferences.Contains(c.Reference))
+                        .Select(c => c.Reference))
+                    .ToListAsync(ct);
+                var unknownReferences = cardReferences.Except(knownReferences).ToList();
+                if (unknownReferences.Count > 0)
+                    return Results.BadRequest($"Unknown card reference(s): {string.Join(", ", unknownReferences)}.");
+            }
 
             var userIds = new List<Guid>();
             foreach (var keycloakId in targetIds)

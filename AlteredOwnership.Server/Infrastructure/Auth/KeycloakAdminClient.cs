@@ -32,18 +32,16 @@ public sealed class KeycloakAdminClient(HttpClient http, IOptions<KeycloakAdminO
 
     // "pseudo" is a custom user attribute (see realm-export.json), not the Keycloak
     // username, so this goes through the admin API's attribute query ("q=key:value")
-    // rather than the username filter. Wrapping the value in *…* is meant to ask for
-    // an infix/contains match (LIKE '%value%') instead of Keycloak's default prefix
-    // match on custom attributes — reportedly fixed as of Keycloak 26.3
-    // (github.com/keycloak/keycloak/issues/39915), but pseudo search has been
-    // observed returning nothing against our actual 26.5.0 realm while email search
-    // (below) works, so that fix's applicability here is unconfirmed. Logged at
+    // rather than the username filter. An infix/contains match (wrapping the value in
+    // *…*) was tried here but has been observed returning nothing against our actual
+    // 26.5.0 realm; a plain exact match on the same "q" filter does work, so the admin
+    // search box requires the full pseudo rather than a partial one. Logged at
     // Information so the exact request/result is visible without reproducing blind.
     public async Task<IReadOnlyList<KeycloakUserDto>> SearchByPseudoAsync(string pseudo, CancellationToken ct)
     {
         var token = await GetAccessTokenAsync(ct);
 
-        var query = Uri.EscapeDataString($"pseudo:*{pseudo}*");
+        var query = Uri.EscapeDataString($"pseudo:{pseudo}");
         using var request = new HttpRequestMessage(HttpMethod.Get, $"admin/realms/{_options.Realm}/users?q={query}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
