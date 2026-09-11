@@ -225,7 +225,7 @@ public class AltArtService(OwnershipDbContext db)
     // correlation, since a shortfall can split one input line into two output lines
     // (some copies keep the chosen art, the rest fall back to the default).
     public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
-        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
+        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, string locale, CancellationToken ct)
     {
         if (deck.Count == 0)
             return new ApplyToDeckResponse([], []);
@@ -288,27 +288,34 @@ public class AltArtService(OwnershipDbContext db)
         // separately (never mixed into Lines, which stays strictly positional against
         // the input) as one line item per token the player has explicitly chosen an art
         // for, one copy per token (max 1 slot).
-        var tokens = await ResolveSelectedTokenItemsAsync(userId, ct);
+        var tokens = await ResolveSelectedTokenItemsAsync(userId, locale, ct);
 
         return new ApplyToDeckResponse(lines, tokens);
     }
 
-    private async Task<List<OwnershipCheckItem>> ResolveSelectedTokenItemsAsync(Guid userId, CancellationToken ct)
+    private async Task<List<TokenArtItem>> ResolveSelectedTokenItemsAsync(Guid userId, string locale, CancellationToken ct)
     {
         var prefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
         if (prefsByGroup.Count == 0)
             return [];
 
         var familyIds = prefsByGroup.Keys.Select(k => k.Item1).Distinct().ToList();
-        var cardTypeByGroup = (await db.CardArtCatalog
-                .Where(c => familyIds.Contains(c.FamilyId))
-                .AsNoTracking()
-                .Select(c => new { c.FamilyId, c.Faction, c.Rarity, c.CardType })
-                .ToListAsync(ct))
+        // Keyed by (FamilyId, Faction, Rarity) to spot which groups are actually TOKEN
+        // (see the CardType filter below), then by exact Reference so the chosen
+        // printing's own row (not just the group's representative one) drives the
+        // metadata a caller needs to render it -- callers (e.g. altered-bga-api's
+        // DeckOwnershipRewriteHandler) have no other source of truth for a token's
+        // name/type/faction/rarity/cost, since it's never itself a line in the deck.
+        var catalogRows = await db.CardArtCatalog
+            .Where(c => familyIds.Contains(c.FamilyId))
+            .AsNoTracking()
+            .ToListAsync(ct);
+        var cardTypeByGroup = catalogRows
             .GroupBy(r => (r.FamilyId, r.Faction, r.Rarity))
             .ToDictionary(g => g.Key, g => g.First().CardType);
+        var rowByReference = catalogRows.ToDictionary(r => r.Reference);
 
-        var items = new List<OwnershipCheckItem>();
+        var items = new List<TokenArtItem>();
         foreach (var (groupKey, groupPrefs) in prefsByGroup)
         {
             if (cardTypeByGroup.GetValueOrDefault(groupKey) != "TOKEN")
@@ -316,8 +323,12 @@ public class AltArtService(OwnershipDbContext db)
 
             // Tokens are capped at slot 1 (AltArtRules.MaxSlots), so an explicit choice
             // can only ever live there.
-            if (groupPrefs.TryGetValue(1, out var chosenReference))
-                items.Add(new OwnershipCheckItem(chosenReference, 1));
+            if (groupPrefs.TryGetValue(1, out var chosenReference) && rowByReference.TryGetValue(chosenReference, out var row))
+            {
+                items.Add(new TokenArtItem(
+                    row.Reference, 1, CardLocalization.Localize(row.FamilyName, locale),
+                    row.CardType, row.Faction, row.Rarity, row.MainCost));
+            }
         }
 
         return items;

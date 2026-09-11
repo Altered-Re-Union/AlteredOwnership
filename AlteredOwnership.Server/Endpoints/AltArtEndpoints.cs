@@ -40,6 +40,18 @@ public record AltArtOptionsResponse(
 public record SetAltArtPreferenceRequest(
     int FamilyId, string Faction, string Rarity, IReadOnlyList<string?> SlotReferences);
 
+// A token to inject into a caller's deck view. Unlike OwnershipCheckItem (Lines),
+// callers have no other way to know what this card actually is -- a token is never
+// part of the input deck, so there's no sibling entry a caller could otherwise clone
+// metadata from (see altered-bga-api's DeckOwnershipRewriteHandler.InjectTokens, which
+// used to clone an unrelated deck card and got everything but Reference wrong).
+// CardType/Faction/Rarity/MainCost come straight from CardArtCatalog; per-illustration
+// gameplay stats (power values, illustrator) aren't tracked there, same as every other
+// non-CHARACTER group callers already render with those fields null.
+public record TokenArtItem(
+    string Reference, int Quantity, string? Name, string CardType,
+    string Faction, string Rarity, int? MainCost);
+
 // Response for apply-to-deck. Lines[i] corresponds exactly to the i-th item of the
 // request body — a single input line can expand into several output lines when its
 // multi-art group's exemplaires are split across more than one chosen illustration, so
@@ -47,7 +59,7 @@ public record SetAltArtPreferenceRequest(
 // (they're created by other cards' effects, not owned/played copies), so they're
 // surfaced separately rather than appended to some arbitrary line.
 public record ApplyToDeckResponse(
-    IReadOnlyList<IReadOnlyList<OwnershipCheckItem>> Lines, IReadOnlyList<OwnershipCheckItem> Tokens);
+    IReadOnlyList<IReadOnlyList<OwnershipCheckItem>> Lines, IReadOnlyList<TokenArtItem> Tokens);
 
 public static class AltArtEndpoints
 {
@@ -116,12 +128,14 @@ public static class AltArtEndpoints
 
         group.MapPost("apply-to-deck", async (
             List<OwnershipCheckItem> deck,
+            string? locale,
             CurrentUserAccessor currentUser,
             AltArtService altArts,
             CancellationToken ct) =>
         {
+            var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
-            return Results.Ok(await altArts.ApplyToDeckAsync(userId, deck, ct));
+            return Results.Ok(await altArts.ApplyToDeckAsync(userId, deck, loc, ct));
         })
         .RequireAuthorization(AuthConstants.ReadPolicy)
         // Read-only transformation of caller-supplied data, no state change — same
