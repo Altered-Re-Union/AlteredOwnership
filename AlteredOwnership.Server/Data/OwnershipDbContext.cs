@@ -25,6 +25,7 @@ public class OwnershipDbContext(DbContextOptions<OwnershipDbContext> options) : 
             e.Property(x => x.KeycloakId).IsRequired();
             e.HasIndex(x => x.KeycloakId).IsUnique();
             e.Property(x => x.Role).HasConversion<string>().HasDefaultValue(UserRole.Player);
+            e.Property(x => x.AltArtPreferenceMode).HasConversion<string>().HasDefaultValue(AltArtPreferenceMode.PerDeck);
         });
 
         b.Entity<OwnershipEvent>(e =>

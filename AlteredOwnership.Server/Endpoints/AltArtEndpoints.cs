@@ -1,3 +1,4 @@
+using AlteredOwnership.Server.Data.Entities;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Infrastructure.Auth;
 
@@ -55,6 +56,13 @@ public record SetAltArtPreferenceRequest(
 public record ApplyToDeckResponse(
     IReadOnlyList<IReadOnlyList<OwnershipCheckItem>> Lines, IReadOnlyList<OwnershipCheckItem> Tokens);
 
+// Whether this player's alt-art choices for regular cards are Global (auto-applied
+// everywhere, see AltArtPreferenceMode) or PerDeck (chosen individually in the
+// deckbuilder, the default).
+public record AltArtPreferenceModeResponse(AltArtPreferenceMode Mode);
+
+public record SetAltArtPreferenceModeRequest(AltArtPreferenceMode Mode);
+
 public static class AltArtEndpoints
 {
     public static IEndpointRouteBuilder MapAltArtEndpoints(this IEndpointRouteBuilder routes)
@@ -88,6 +96,31 @@ public static class AltArtEndpoints
                 skip: Math.Max(skip ?? 0, 0), take: Math.Clamp(take ?? 25, 1, 100), ct);
             return Results.Ok(result);
         }).RequireAuthorization(AuthConstants.ReadPolicy);
+
+        group.MapGet("preference-mode", async (
+            CurrentUserAccessor currentUser,
+            AltArtService altArts,
+            CancellationToken ct) =>
+        {
+            var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            var mode = await altArts.GetPreferenceModeAsync(userId, ct);
+            return Results.Ok(new AltArtPreferenceModeResponse(mode));
+        }).RequireAuthorization(AuthConstants.ReadPolicy);
+
+        group.MapPut("preference-mode", async (
+            SetAltArtPreferenceModeRequest request,
+            CurrentUserAccessor currentUser,
+            AltArtService altArts,
+            CancellationToken ct) =>
+        {
+            var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            await altArts.SetPreferenceModeAsync(userId, request.Mode, ct);
+            return Results.NoContent();
+        })
+        // Same reasoning as "preferences": must be callable by third-party Bearer
+        // clients (the website's server-side proxy), not just WritePolicy's cookie-only
+        // callers.
+        .RequireAuthorization(AuthConstants.ReadPolicy);
 
         group.MapPost("resolve-references", async (
             List<string> references,

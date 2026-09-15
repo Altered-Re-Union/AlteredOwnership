@@ -21,6 +21,16 @@ public class AltArtService(OwnershipDbContext db)
         return groups.Select(ToFamilyResponse).ToList();
     }
 
+    public async Task<AltArtPreferenceMode> GetPreferenceModeAsync(Guid userId, CancellationToken ct) =>
+        await db.Users.Where(u => u.Id == userId).Select(u => u.AltArtPreferenceMode).SingleOrDefaultAsync(ct);
+
+    public async Task SetPreferenceModeAsync(Guid userId, AltArtPreferenceMode mode, CancellationToken ct)
+    {
+        var user = await db.Users.SingleAsync(u => u.Id == userId, ct);
+        user.AltArtPreferenceMode = mode;
+        await db.SaveChangesAsync(ct);
+    }
+
     // Combines families + options + the "hide non-choices" filter into one paginated,
     // per-user call — the alt-arts browse page's own use case (see alt-art-search.php).
     // Unlike GetFamiliesAsync/GetOptionsAsync, which a caller can freely chain for a
@@ -284,22 +294,27 @@ public class AltArtService(OwnershipDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
-    // Per-deck art, not the global 3-slot preference: a deck's own card list already
-    // names the exact illustration the player chose for it (in the deckbuilder), so the
-    // only question here is whether they still own enough copies of THAT reference —
-    // any shortfall falls back to the group's default/base art, never to the global
-    // UserCardArtPreference (that table is only consulted for tokens below, since a
-    // token is never itself a deck line to check ownership against). Lines[i]
-    // corresponds exactly to deck[i] — callers that need to splice a rewritten
-    // reference back into a richer, deck[i]-shaped structure of their own (e.g. a BGA
-    // middleware rebuilding a nested per-type deck view) rely on this positional
-    // correlation, since a shortfall can split one input line into two output lines
-    // (some copies keep the chosen art, the rest fall back to the default).
+    // In PerDeck mode (the default), a deck's own card list already names the exact
+    // illustration the player chose for it (in the deckbuilder), so the only question is
+    // whether they still own enough copies of THAT reference — any shortfall falls back
+    // to the group's default/base art, never to the global UserCardArtPreference. In
+    // Global mode, the player's own choice of illustration is UserCardArtPreference
+    // itself (the deckbuilder no longer lets them pick per card — see
+    // ResolvePreferredLine), so every tracked line is resolved against their preferred
+    // slots first and only falls back to the default print when they don't own enough of
+    // a preferred slot's reference either. Either way, Lines[i] corresponds exactly to
+    // deck[i] — callers that need to splice a rewritten reference back into a richer,
+    // deck[i]-shaped structure of their own (e.g. a BGA middleware rebuilding a nested
+    // per-type deck view) rely on this positional correlation, since a shortfall (or a
+    // preference spread across several slots) can split one input line into several
+    // output lines.
     public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
         Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
     {
         if (deck.Count == 0)
             return new ApplyToDeckResponse([], []);
+
+        var isGlobalMode = await GetPreferenceModeAsync(userId, ct) == AltArtPreferenceMode.Global;
 
         var references = deck.Select(i => i.Reference).Distinct().ToList();
         var catalogByRef = await db.CardArtCatalog
@@ -308,17 +323,34 @@ public class AltArtService(OwnershipDbContext db)
             .ToDictionaryAsync(c => c.Reference, ct);
 
         // Only entries that might actually need a fallback (tracked prints) require
-        // knowing their group's default art or the player's owned quantity.
+        // knowing their group's default art or the player's owned quantity — except in
+        // Global mode, where even a deck line that already names the (infinite) default
+        // print may still need to be rewritten onto the player's preferred art, so every
+        // referenced family's rows must be loaded too.
         var trackedEntries = catalogByRef.Values.Where(c => !AltArtRules.IsInfinite(c)).ToList();
 
-        var familyIds = trackedEntries.Select(c => c.FamilyId).Distinct().ToList();
+        var familyIds = trackedEntries.Select(c => c.FamilyId)
+            .Concat(isGlobalMode ? catalogByRef.Values.Select(c => c.FamilyId) : [])
+            .Distinct().ToList();
         var rowsByGroup = familyIds.Count == 0
             ? new Dictionary<(int, string, string), List<CardArtCatalogEntry>>()
             : (await db.CardArtCatalog.Where(c => familyIds.Contains(c.FamilyId)).AsNoTracking().ToListAsync(ct))
                 .GroupBy(r => (r.FamilyId, r.Faction, r.Rarity))
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-        var trackedRefs = trackedEntries.Select(c => c.Reference).Distinct().ToList();
+        var prefsByGroup = isGlobalMode
+            ? await LoadPreferencesByGroupAsync(userId, ct)
+            : new Dictionary<(int, string, string), Dictionary<int, string>>();
+
+        var trackedRefs = trackedEntries.Select(c => c.Reference).ToList();
+        if (isGlobalMode)
+            // Preferred slot references (which may differ from every deck[i].Reference)
+            // need their own ownership counts too, so they can fall back correctly.
+            trackedRefs.AddRange(prefsByGroup
+                .Where(kv => rowsByGroup.ContainsKey(kv.Key))
+                .SelectMany(kv => kv.Value.Values));
+        trackedRefs = trackedRefs.Distinct().ToList();
+
         var owned = trackedRefs.Count == 0
             ? new Dictionary<string, int>()
             : await db.CardOwnerships
@@ -329,14 +361,37 @@ public class AltArtService(OwnershipDbContext db)
         var lines = new List<IReadOnlyList<OwnershipCheckItem>>(deck.Count);
         foreach (var item in deck)
         {
-            if (!catalogByRef.TryGetValue(item.Reference, out var entry) || AltArtRules.IsInfinite(entry))
+            if (!catalogByRef.TryGetValue(item.Reference, out var entry))
             {
-                lines.Add([item]); // not a catalog reference, or an untracked/always-available print
+                lines.Add([item]); // not a catalog reference
                 continue;
             }
 
+            var groupKey = (entry.FamilyId, entry.Faction, entry.Rarity);
+
+            // In Global mode, an explicit family preference always wins — even over a
+            // deck line that already names the group's own (infinite) default print —
+            // since the player's chosen slots are the source of truth for what art they
+            // want, not whatever reference happens to be stored on the deck.
+            if (isGlobalMode
+                && rowsByGroup.TryGetValue(groupKey, out var preferredGroupRows)
+                && prefsByGroup.TryGetValue(groupKey, out var groupPrefs)
+                && groupPrefs.Count > 0)
+            {
+                var preferredDefault = ResolveDefaultRow(preferredGroupRows).Reference;
+                lines.Add(ResolvePreferredLine(item, preferredGroupRows, preferredDefault, groupPrefs, owned));
+                continue;
+            }
+
+            if (AltArtRules.IsInfinite(entry))
+            {
+                lines.Add([item]); // untracked/always-available print, no fallback needed
+                continue;
+            }
+
+            var groupRows = rowsByGroup[groupKey];
+            var defaultReference = ResolveDefaultRow(groupRows).Reference;
             var ownedQty = owned.GetValueOrDefault(item.Reference, 0);
-            var defaultReference = ResolveDefaultRow(rowsByGroup[(entry.FamilyId, entry.Faction, entry.Rarity)]).Reference;
 
             // Owns enough of exactly this print, or this IS already the group's default
             // (no better fallback exists) -> nothing to rewrite.
@@ -355,13 +410,66 @@ public class AltArtService(OwnershipDbContext db)
 
         // Tokens are never deck cards themselves (they're created by other cards'
         // effects, never listed as an owned/played copy) — the deckbuilder never asks
-        // for one, so their art can only come from the global preference. Surfaced
-        // separately (never mixed into Lines, which stays strictly positional against
-        // the input) as one line item per token the player has explicitly chosen an art
-        // for, one copy per token (max 1 slot).
+        // for one, so their art can only come from the global preference (regardless of
+        // PerDeck/Global mode — token art is always global, see
+        // AltArtPreferenceMode). Surfaced separately (never mixed into Lines, which
+        // stays strictly positional against the input) as one line item per token the
+        // player has explicitly chosen an art for, one copy per token (max 1 slot).
         var tokens = await ResolveSelectedTokenItemsAsync(userId, ct);
 
         return new ApplyToDeckResponse(lines, tokens);
+    }
+
+    // Global-mode resolution for one deck line: spread its Quantity copies across the
+    // family's preferred slots the same way the deckbuilder's old client-side "apply
+    // preferences" button used to (one copy per slot, any copies beyond the slot count
+    // all pile onto the last slot — see distributeAcrossSlots in deckbuilder.php), then
+    // apply the usual ownership-shortfall-falls-back-to-default rule independently to
+    // each resulting (reference, quantity) pair.
+    private static List<OwnershipCheckItem> ResolvePreferredLine(
+        OwnershipCheckItem item, List<CardArtCatalogEntry> groupRows, string defaultReference,
+        Dictionary<int, string> groupPrefs, Dictionary<string, int> owned)
+    {
+        var rowsByRef = groupRows.ToDictionary(r => r.Reference);
+        var maxSlots = AltArtRules.MaxSlots(groupRows[0].CardType);
+        var slots = ResolveSlots(maxSlots, defaultReference, groupPrefs);
+
+        var perReferenceQty = new Dictionary<string, int>();
+        for (var copy = 0; copy < item.Quantity; copy++)
+        {
+            var slot = slots[Math.Min(copy, slots.Count - 1)];
+            perReferenceQty[slot.Reference] = perReferenceQty.GetValueOrDefault(slot.Reference) + 1;
+        }
+
+        var result = new List<OwnershipCheckItem>();
+        foreach (var (reference, quantity) in perReferenceQty)
+        {
+            if (!rowsByRef.TryGetValue(reference, out var row)
+                || AltArtRules.IsInfinite(row)
+                || reference == defaultReference)
+            {
+                result.Add(new OwnershipCheckItem(reference, quantity));
+                continue;
+            }
+
+            var ownedQty = owned.GetValueOrDefault(reference, 0);
+            if (ownedQty >= quantity)
+            {
+                result.Add(new OwnershipCheckItem(reference, quantity));
+                continue;
+            }
+
+            if (ownedQty > 0)
+                result.Add(new OwnershipCheckItem(reference, ownedQty));
+            result.Add(new OwnershipCheckItem(defaultReference, quantity - ownedQty));
+        }
+
+        // Merge duplicate default-reference entries that shortfalls from more than one
+        // preferred slot may have produced.
+        return result
+            .GroupBy(l => l.Reference)
+            .Select(g => new OwnershipCheckItem(g.Key, g.Sum(l => l.Quantity)))
+            .ToList();
     }
 
     private async Task<List<OwnershipCheckItem>> ResolveSelectedTokenItemsAsync(Guid userId, CancellationToken ct)

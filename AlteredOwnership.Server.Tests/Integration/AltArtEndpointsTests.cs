@@ -47,6 +47,8 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     private record AltArtOptionsResponse(int FamilyId, string Faction, string Rarity, List<AltArtOption> Options, List<AltArtSlotChoice> Slots);
     private record AltArtSearchResult(List<AltArtFamilyResponse> Families, List<AltArtOptionsResponse> Options, bool HasMore);
     private record SetAltArtPreferenceRequest(int FamilyId, string Faction, string Rarity, List<string?> SlotReferences);
+    private record AltArtPreferenceModeResponse(string Mode);
+    private record SetAltArtPreferenceModeRequest(string Mode);
     private record OwnershipCheckItem(string Reference, int Quantity);
     private record OwnershipShortfall(string Reference, int Requested, int Owned);
     private record ApplyToDeckResponse(List<List<OwnershipCheckItem>> Lines, List<OwnershipCheckItem> Tokens);
@@ -151,6 +153,122 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         request.Headers.Add("X-CSRF-TOKEN", token);
         request.Headers.Add(TestAuthHandler.UserHeader, user);
         return await _client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> SetPreferenceModeAsync(string user, string mode)
+    {
+        using var csrfReq = new HttpRequestMessage(HttpMethod.Get, "/api/auth/csrf");
+        csrfReq.Headers.Add(TestAuthHandler.UserHeader, user);
+        using var csrfRes = await _client.SendAsync(csrfReq);
+        csrfRes.EnsureSuccessStatusCode();
+        var token = (await csrfRes.Content.ReadFromJsonAsync<CsrfResponse>())!.Token;
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/api/alt-arts/preference-mode")
+        {
+            Content = JsonContent.Create(new SetAltArtPreferenceModeRequest(mode)),
+        };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        request.Headers.Add(TestAuthHandler.UserHeader, user);
+        return await _client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task PreferenceMode_defaults_to_PerDeck_and_persists_once_changed()
+    {
+        const string user = "alt-art-mode-user";
+
+        using var before = await Authenticated(HttpMethod.Get, "/api/alt-arts/preference-mode", user);
+        before.EnsureSuccessStatusCode();
+        Assert.Equal("PerDeck", (await before.Content.ReadFromJsonAsync<AltArtPreferenceModeResponse>())!.Mode);
+
+        using var setResponse = await SetPreferenceModeAsync(user, "Global");
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, setResponse.StatusCode);
+
+        using var after = await Authenticated(HttpMethod.Get, "/api/alt-arts/preference-mode", user);
+        Assert.Equal("Global", (await after.Content.ReadFromJsonAsync<AltArtPreferenceModeResponse>())!.Mode);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_ignores_global_preference_in_PerDeck_mode()
+    {
+        const string user = "alt-art-perdeck-mode-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;3\n",
+            user);
+
+        using var setPref = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, LandmarkAlt]));
+        setPref.EnsureSuccessStatusCode();
+
+        // The deck itself asks for the plain default print — in the default PerDeck
+        // mode, the global preference above must be ignored entirely.
+        var deck = new List<OwnershipCheckItem> { new(LandmarkDefault, 3) };
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        var line = Assert.Single(Assert.Single(result.Lines));
+        Assert.Equal(new OwnershipCheckItem(LandmarkDefault, 3), line);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_rewrites_to_the_preferred_slots_in_Global_mode()
+    {
+        const string user = "alt-art-global-mode-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;2\n",
+            user);
+
+        using var setPref = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, null]));
+        setPref.EnsureSuccessStatusCode();
+
+        using var setMode = await SetPreferenceModeAsync(user, "Global");
+        setMode.EnsureSuccessStatusCode();
+
+        // The deck itself still names the plain default print (as if it had never been
+        // edited in the deckbuilder) — Global mode must rewrite it to the preferred
+        // slots regardless: 2 copies to the owned alt art (slots 1-2), the 3rd copy
+        // (slot 3, no explicit choice) stays on the default.
+        var deck = new List<OwnershipCheckItem> { new(LandmarkDefault, 3) };
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        var line = Assert.Single(result.Lines);
+        Assert.Contains(line, i => i.Reference == LandmarkAlt && i.Quantity == 2);
+        Assert.Contains(line, i => i.Reference == LandmarkDefault && i.Quantity == 1);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_falls_back_to_default_when_preferred_slot_art_is_no_longer_owned_enough_in_Global_mode()
+    {
+        const string user = "alt-art-global-mode-shortfall-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;2\n",
+            user);
+
+        using var setPref = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, null]));
+        setPref.EnsureSuccessStatusCode();
+
+        using var setMode = await SetPreferenceModeAsync(user, "Global");
+        setMode.EnsureSuccessStatusCode();
+
+        // Only 2 copies of the alt art are owned, but the deck asks for 3 copies spread
+        // across all 3 preferred slots (2 explicit + 1 default) -> the shortfall on the
+        // 3rd requested copy of the alt art falls back to the default print.
+        var deck = new List<OwnershipCheckItem> { new(LandmarkAlt, 3) };
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        var line = Assert.Single(result.Lines);
+        Assert.Contains(line, i => i.Reference == LandmarkAlt && i.Quantity == 2);
+        Assert.Contains(line, i => i.Reference == LandmarkDefault && i.Quantity == 1);
     }
 
     [Fact]
