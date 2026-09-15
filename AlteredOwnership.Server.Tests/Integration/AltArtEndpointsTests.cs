@@ -22,8 +22,13 @@ namespace AlteredOwnership.Server.Tests.Integration;
 //  - Family 1 (LY, C) "Sleight of Hand": ALT_ALIZE_B_LY_39_C, the catalog's only
 //    printing — not a multi-art group at all.
 //  - Family 31 (BR, C) "Booda" (TOKEN): 5 prints, 4 from base sets (ALIZE/CORE x2/
-//    COREKS — infinite regardless of ownership) and one from DUSTEROP, a non-base set
-//    (ALT_DUSTEROP_B_BR_31_C — a real, ownership-gated option) — a 1-slot token group.
+//    COREKS — infinite regardless of ownership) and ALT_DUSTEROP_B_BR_31_C, a non-base
+//    set print that's nonetheless infinite too (AltArtRules.AlwaysAvailablePrints — it
+//    was given to every Duster organized-play participant) — a fully-infinite 1-slot
+//    token group.
+//  - Family 478 (MU, C) "Woollyback" (TOKEN): 3 prints, 2 from base sets (CYCLONE/EOLE —
+//    infinite) and ALT_DUSTEROP_A_MU_83_C, a real ownership-gated non-base-set print —
+//    a 1-slot token group with a genuine "requires ownership" option.
 public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<OwnershipApiFactory>
 {
     private const string LandmarkDefault = "ALT_ALIZE_B_LY_45_R1";
@@ -32,13 +37,15 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     private const string HeroAlt = "ALT_CORE_P_LY_02_C";
     private const string MonoArt = "ALT_ALIZE_B_LY_39_C";
     private const string TokenDefault = "ALT_ALIZE_B_BR_31_C";
-    private const string TokenTracked = "ALT_DUSTEROP_B_BR_31_C";
+    private const string TokenTracked = "ALT_DUSTEROP_A_MU_83_C";
+    private const string TokenTrackedGroupBaseSet = "ALT_CYCLONE_B_MU_83_C";
 
     private record AltArtFamilyResponse(int FamilyId, string Faction, string Rarity, string Reference, string? Name, string CardType, int? MainCost);
     private record AltArtGroupKey(int FamilyId, string Faction, string Rarity);
     private record AltArtOption(string Reference, string Set, bool IsPromo, int? OwnedQuantity);
     private record AltArtSlotChoice(int SlotIndex, string Reference, bool IsExplicitChoice);
     private record AltArtOptionsResponse(int FamilyId, string Faction, string Rarity, List<AltArtOption> Options, List<AltArtSlotChoice> Slots);
+    private record AltArtSearchResult(List<AltArtFamilyResponse> Families, List<AltArtOptionsResponse> Options, bool HasMore);
     private record SetAltArtPreferenceRequest(int FamilyId, string Faction, string Rarity, List<string?> SlotReferences);
     private record OwnershipCheckItem(string Reference, int Quantity);
     private record OwnershipShortfall(string Reference, int Requested, int Owned);
@@ -186,6 +193,53 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         using var request = new HttpRequestMessage(method, url);
         request.Headers.Add(TestAuthHandler.UserHeader, user);
         return await _client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task Search_hides_families_without_a_real_choice_until_ownership_makes_one_possible()
+    {
+        const string user = "alt-art-search-hide-user";
+
+        using var before = await Authenticated(HttpMethod.Get,
+            "/api/alt-arts/search?faction[]=LY&rarity[]=R&mainCost=2&hideNonChoices=true", user);
+        before.EnsureSuccessStatusCode();
+        var beforeResult = (await before.Content.ReadFromJsonAsync<AltArtSearchResult>())!;
+        Assert.DoesNotContain(beforeResult.Families, f => f.FamilyId == 4);
+
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;1\n",
+            user);
+
+        using var after = await Authenticated(HttpMethod.Get,
+            "/api/alt-arts/search?faction[]=LY&rarity[]=R&mainCost=2&hideNonChoices=true", user);
+        var afterResult = (await after.Content.ReadFromJsonAsync<AltArtSearchResult>())!;
+        Assert.Contains(afterResult.Families, f => f.FamilyId == 4);
+        var options = afterResult.Options.Single(o => o.FamilyId == 4);
+        Assert.Contains(options.Options, o => o.Reference == LandmarkAlt && o.OwnedQuantity == 1);
+    }
+
+    [Fact]
+    public async Task Search_paginates_server_side_and_reports_HasMore()
+    {
+        const string user = "alt-art-search-page-user";
+
+        using var page1 = await Authenticated(HttpMethod.Get,
+            "/api/alt-arts/search?faction[]=LY&hideNonChoices=false&skip=0&take=1", user);
+        page1.EnsureSuccessStatusCode();
+        var result1 = (await page1.Content.ReadFromJsonAsync<AltArtSearchResult>())!;
+        var first = Assert.Single(result1.Families);
+        Assert.True(result1.HasMore);
+        // Options are computed and returned only for the page, not for every LY family.
+        Assert.Single(result1.Options);
+
+        using var page2 = await Authenticated(HttpMethod.Get,
+            "/api/alt-arts/search?faction[]=LY&hideNonChoices=false&skip=1&take=1", user);
+        var result2 = (await page2.Content.ReadFromJsonAsync<AltArtSearchResult>())!;
+        var second = Assert.Single(result2.Families);
+        // FamilyId alone isn't unique — the same family can recur under different
+        // (Faction, Rarity) combos — so compare the full group key.
+        Assert.NotEqual((first.FamilyId, first.Faction, first.Rarity), (second.FamilyId, second.Faction, second.Rarity));
     }
 
     [Fact]
@@ -369,10 +423,10 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     {
         const string user = "alt-art-token-options-user";
 
-        using var beforeOwning = await GetOptionsAsync(user, new AltArtGroupKey(31, "BR", "C"));
+        using var beforeOwning = await GetOptionsAsync(user, new AltArtGroupKey(478, "MU", "C"));
         var groupBefore = Assert.Single((await beforeOwning.Content.ReadFromJsonAsync<List<AltArtOptionsResponse>>())!);
 
-        var baseSetOption = groupBefore.Options.Single(o => o.Reference == TokenDefault);
+        var baseSetOption = groupBefore.Options.Single(o => o.Reference == TokenTrackedGroupBaseSet);
         var trackedOption = groupBefore.Options.Single(o => o.Reference == TokenTracked);
         Assert.Null(baseSetOption.OwnedQuantity); // base-set token print -> infinite for everyone
         Assert.Equal(0, trackedOption.OwnedQuantity); // non-base-set print -> real ownership, none yet
@@ -382,27 +436,44 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
 
         // Selecting the non-base-set print requires owning at least one copy.
         using var rejected = await SetPreferenceAsync(user,
-            new SetAltArtPreferenceRequest(31, "BR", "C", [TokenTracked]));
+            new SetAltArtPreferenceRequest(478, "MU", "C", [TokenTracked]));
         Assert.Equal(System.Net.HttpStatusCode.Conflict, rejected.StatusCode);
 
         // Requesting more than the group's single slot is rejected regardless.
         using var tooMany = await SetPreferenceAsync(user,
-            new SetAltArtPreferenceRequest(31, "BR", "C", [TokenTracked, TokenTracked]));
+            new SetAltArtPreferenceRequest(478, "MU", "C", [TokenTracked, TokenTracked]));
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, tooMany.StatusCode);
 
         await ImportAsync(
             TimestampLine() + Header +
-            $"{TokenTracked};Booda;Commun;1\n",
+            $"{TokenTracked};Woollyback;Commun;1\n",
             user);
 
         using var accepted = await SetPreferenceAsync(user,
-            new SetAltArtPreferenceRequest(31, "BR", "C", [TokenTracked]));
+            new SetAltArtPreferenceRequest(478, "MU", "C", [TokenTracked]));
         Assert.Equal(System.Net.HttpStatusCode.NoContent, accepted.StatusCode);
 
         // The base-set print never needed ownership at all.
         using var baseSetChoice = await SetPreferenceAsync(user,
-            new SetAltArtPreferenceRequest(31, "BR", "C", [TokenDefault]));
+            new SetAltArtPreferenceRequest(478, "MU", "C", [TokenTrackedGroupBaseSet]));
         Assert.Equal(System.Net.HttpStatusCode.NoContent, baseSetChoice.StatusCode);
+    }
+
+    [Fact]
+    public async Task DusterOp_giveaway_token_print_is_infinite_despite_not_being_a_base_set()
+    {
+        const string user = "alt-art-dusterop-giveaway-user";
+
+        using var response = await GetOptionsAsync(user, new AltArtGroupKey(31, "BR", "C"));
+        var group = Assert.Single((await response.Content.ReadFromJsonAsync<List<AltArtOptionsResponse>>())!);
+
+        var dusterOpOption = group.Options.Single(o => o.Reference == "ALT_DUSTEROP_B_BR_31_C");
+        Assert.Null(dusterOpOption.OwnedQuantity); // AltArtRules.AlwaysAvailablePrints exception
+
+        // Selectable with zero ownership imported.
+        using var accepted = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(31, "BR", "C", ["ALT_DUSTEROP_B_BR_31_C"]));
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, accepted.StatusCode);
     }
 
     [Fact]

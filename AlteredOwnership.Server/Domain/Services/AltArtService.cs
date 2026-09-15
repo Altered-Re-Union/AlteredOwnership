@@ -17,6 +17,79 @@ public class AltArtService(OwnershipDbContext db)
 {
     public async Task<List<AltArtFamilyResponse>> GetFamiliesAsync(AltArtFamilyQuery query, string locale, CancellationToken ct)
     {
+        var groups = await BuildFilteredGroupsAsync(query, locale, ct);
+        return groups.Select(ToFamilyResponse).ToList();
+    }
+
+    // Combines families + options + the "hide non-choices" filter into one paginated,
+    // per-user call — the alt-arts browse page's own use case (see alt-art-search.php).
+    // Unlike GetFamiliesAsync/GetOptionsAsync, which a caller can freely chain for a
+    // small, caller-known set of groups (the deckbuilder), this page runs an open-ended
+    // catalog search with no set of groups known in advance, so filtering (including the
+    // ownership-dependent "has a real choice" rule) and pagination must both happen
+    // server-side — otherwise every request computes and returns options for the
+    // catalog's entire matching set before the client ever gets to discard most of it.
+    public async Task<AltArtSearchResult> SearchAsync(
+        Guid userId, AltArtFamilyQuery query, string locale, bool hideNonChoices, int skip, int take, CancellationToken ct)
+    {
+        var groups = await BuildFilteredGroupsAsync(query, locale, ct);
+        groups = groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+        var allRefs = groups.SelectMany(g => g.Rows).Select(r => r.Reference).Distinct().ToList();
+        var owned = allRefs.Count == 0
+            ? new Dictionary<string, int>()
+            : await db.CardOwnerships
+                .Where(o => o.UserId == userId && allRefs.Contains(o.CardReference))
+                .AsNoTracking()
+                .ToDictionaryAsync(o => o.CardReference, o => o.Quantity, ct);
+
+        bool HasRealChoice(List<CardArtCatalogEntry> rows) =>
+            rows.Count(r => AltArtRules.IsInfinite(r) || owned.GetValueOrDefault(r.Reference, 0) > 0) >= 2;
+
+        if (hideNonChoices)
+            groups = groups.Where(g => HasRealChoice(g.Rows)).ToList();
+
+        var totalCount = groups.Count;
+        var page = groups.Skip(skip).Take(take).ToList();
+
+        var prefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
+
+        var options = page.Select(g =>
+        {
+            var defaultReference = g.Representative.Reference;
+            var opts = g.Rows
+                .OrderBy(r => r.Reference == defaultReference ? 0 : 1)
+                .ThenBy(r => r.SortOrder)
+                .Select(r =>
+                {
+                    var isInfinite = AltArtRules.IsInfinite(r);
+                    int? ownedQuantity = isInfinite ? null : owned.GetValueOrDefault(r.Reference, 0);
+                    return new AltArtOption(r.Reference, r.Set, r.IsPromo, ownedQuantity, r.SortOrder);
+                })
+                .ToList();
+
+            var groupKey = (g.Representative.FamilyId, g.Representative.Faction, g.Representative.Rarity);
+            prefsByGroup.TryGetValue(groupKey, out var groupPrefs);
+            var slots = ResolveSlots(AltArtRules.MaxSlots(g.Representative.CardType), defaultReference, groupPrefs);
+
+            return new AltArtOptionsResponse(
+                g.Representative.FamilyId, g.Representative.Faction, g.Representative.Rarity, opts, slots);
+        }).ToList();
+
+        return new AltArtSearchResult(page.Select(ToFamilyResponse).ToList(), options, skip + take < totalCount);
+    }
+
+    private static AltArtFamilyResponse ToFamilyResponse(AltArtGroup g) => new(
+        g.Representative.FamilyId, g.Representative.Faction, g.Representative.Rarity,
+        g.Representative.Reference, g.Name, g.Representative.CardType, g.Representative.MainCost);
+
+    private sealed record AltArtGroup(CardArtCatalogEntry Representative, List<CardArtCatalogEntry> Rows, string? Name);
+
+    // Every multi-art (FamilyId, Faction, Rarity) group matching the catalog-level
+    // filters (mono-art groups excluded — nothing to pick between), plus the name/
+    // mainCost filters that need the group's representative row resolved first.
+    private async Task<List<AltArtGroup>> BuildFilteredGroupsAsync(AltArtFamilyQuery query, string locale, CancellationToken ct)
+    {
         IQueryable<CardArtCatalogEntry> q = db.CardArtCatalog.AsNoTracking();
         if (query.Factions.Count > 0) q = q.Where(c => query.Factions.Contains(c.Faction));
         if (query.CardTypes.Count > 0) q = q.Where(c => query.CardTypes.Contains(c.CardType));
@@ -27,7 +100,7 @@ public class AltArtService(OwnershipDbContext db)
         // elaborate SQL-side aggregation.
         var rows = await q.ToListAsync(ct);
 
-        var results = new List<AltArtFamilyResponse>();
+        var results = new List<AltArtGroup>();
         foreach (var groupRows in rows.GroupBy(r => (r.FamilyId, r.Faction, r.Rarity)).Select(g => g.ToList()))
         {
             if (groupRows.Select(r => r.Reference).Distinct().Count() <= 1)
@@ -41,9 +114,7 @@ public class AltArtService(OwnershipDbContext db)
             if (!MatchesNumeric(representative.MainCost, query.MainCost))
                 continue;
 
-            results.Add(new AltArtFamilyResponse(
-                representative.FamilyId, representative.Faction, representative.Rarity,
-                representative.Reference, name, representative.CardType, representative.MainCost));
+            results.Add(new AltArtGroup(representative, groupRows, name));
         }
 
         return results;

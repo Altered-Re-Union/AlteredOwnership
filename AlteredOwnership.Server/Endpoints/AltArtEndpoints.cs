@@ -34,6 +34,12 @@ public record AltArtOptionsResponse(
     int FamilyId, string Faction, string Rarity,
     IReadOnlyList<AltArtOption> Options, IReadOnlyList<AltArtSlotChoice> Slots);
 
+// One page of the combined families+options browse query (see AltArtService.SearchAsync).
+// HasMore tells the caller whether a further page (Skip += Take) would return anything,
+// without it having to know the filtered/paginated TotalCount itself.
+public record AltArtSearchResult(
+    IReadOnlyList<AltArtFamilyResponse> Families, IReadOnlyList<AltArtOptionsResponse> Options, bool HasMore);
+
 // Sets every slot's art for one group in a single call — index 0 is slot 1, etc.
 // SlotReferences.Count must equal the group's slot count (1 for HERO, else 3). A null
 // entry resets that slot back to the group's default art.
@@ -63,6 +69,24 @@ public static class AltArtEndpoints
         {
             var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
             return Results.Ok(await altArts.GetFamiliesAsync(query, loc, ct));
+        }).RequireAuthorization(AuthConstants.ReadPolicy);
+
+        group.MapGet("search", async (
+            AltArtFamilyQuery query,
+            string? locale,
+            bool? hideNonChoices,
+            int? skip,
+            int? take,
+            CurrentUserAccessor currentUser,
+            AltArtService altArts,
+            CancellationToken ct) =>
+        {
+            var loc = string.IsNullOrWhiteSpace(locale) ? "en" : locale;
+            var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
+            var result = await altArts.SearchAsync(
+                userId, query, loc, hideNonChoices ?? false,
+                skip: Math.Max(skip ?? 0, 0), take: Math.Clamp(take ?? 25, 1, 100), ct);
+            return Results.Ok(result);
         }).RequireAuthorization(AuthConstants.ReadPolicy);
 
         group.MapPost("resolve-references", async (
