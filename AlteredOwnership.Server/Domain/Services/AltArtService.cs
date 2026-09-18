@@ -490,7 +490,7 @@ public class AltArtService(OwnershipDbContext db)
         var items = new List<OwnershipCheckItem>();
         foreach (var (groupKey, groupPrefs) in prefsByGroup)
         {
-            if (cardTypeByGroup.GetValueOrDefault(groupKey) != "TOKEN")
+            if (!(cardTypeByGroup.GetValueOrDefault(groupKey) ?? "").StartsWith("TOKEN", StringComparison.Ordinal))
                 continue;
 
             // Tokens are capped at slot 1 (AltArtRules.MaxSlots), so an explicit choice

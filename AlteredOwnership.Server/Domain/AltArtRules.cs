@@ -39,16 +39,24 @@ public static class AltArtRules
     // illustration — see CardReferenceParser.IsAlternateArt), when it's from MUSUBI and
     // not one of the tracked MUSUBI 2.0 prints above (MUSUBI prints ARE normally tracked
     // — MUSUBI is in CardReferenceParser.DedicatedAltSets — but most of the set is equal-
-    // access), when it's a TOKEN printed in a base set (base-set tokens ship in every
-    // box, so ownership isn't a real constraint for them the way it is for a token from a
-    // promo/organized-play set), or when it's one of the one-off exceptions above.
+    // access), when it's a token-family card (any TOKEN_* variant, not just the literal
+    // "TOKEN" type — same reasoning as MaxSlots below) printed in a base set (base-set
+    // tokens/mana orbs/aeroliths ship in every box, so ownership isn't a real constraint
+    // for them the way it is for a promo/organized-play print), or when it's one of the
+    // one-off exceptions above.
     public static bool IsInfinite(CardArtCatalogEntry entry) =>
         !CardReferenceParser.IsAlternateArt(entry.Reference)
         || (entry.Set == MusubiSet && !MusubiTrackedPrints.Contains(entry.Reference))
-        || (entry.CardType == TokenCardType && entry.IsBaseSet)
+        || (entry.CardType.StartsWith(TokenCardType, StringComparison.Ordinal) && entry.IsBaseSet)
         || AlwaysAvailablePrints.Contains(entry.Reference);
 
     // A deck holds at most 3 copies of any card, except a HERO (exactly 1 per deck) or
-    // a TOKEN (a single chosen art represents every copy the card's effects create).
-    public static int MaxSlots(string cardType) => cardType is HeroCardType or TokenCardType ? 1 : 3;
+    // a token-family card (a single chosen art represents every copy the card's effects
+    // create) — not just the literal "TOKEN" type but every TOKEN_* variant (TOKEN_MANA
+    // "Mana Orb", TOKEN_LANDMARK_PERMANENT "Aerolith", ...), the same "starts with TOKEN"
+    // convention the website's deckbuilder and alt-arts pages already use to identify
+    // token-family cards (they're never deck lines with their own owned quantity either
+    // way — see ResolveSelectedTokenItemsAsync).
+    public static int MaxSlots(string cardType) =>
+        cardType == HeroCardType || cardType.StartsWith(TokenCardType, StringComparison.Ordinal) ? 1 : 3;
 }
