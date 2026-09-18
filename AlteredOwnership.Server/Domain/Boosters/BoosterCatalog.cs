@@ -1,11 +1,16 @@
 namespace AlteredOwnership.Server.Domain.Boosters;
 
 // A booster type's random-draw scope, name and cover art. Fixed in code
-// for now — no admin UI to author these, per current scope. Every type today draws
-// exactly one unique from UniqueCardStock, filtered by Set and/or Faction (either
-// or both may be null to mean "any"); ImagePath is nullable when no cover art
+// for now — no admin UI to author these, per current scope. A type draws exactly
+// one card per booster: either a unique from UniqueCardStock, filtered by Set
+// and/or Faction (either or both may be null to mean "any"), or — when
+// AltArtReferences is set — a uniform pick from that fixed pool of non-unique alt
+// art printings instead (Set/Faction are unused for those; unlimited copies exist,
+// so there's no stock to reserve from). ImagePath is nullable when no cover art
 // exists yet, and the frontend falls back to a generic icon.
-public record BoosterType(string Key, string Name, string? Set, string? Faction, string? ImagePath);
+public record BoosterType(
+    string Key, string Name, string? Set, string? Faction, string? ImagePath,
+    IReadOnlyList<string>? AltArtReferences = null);
 
 public static class BoosterCatalog
 {
@@ -34,6 +39,39 @@ public static class BoosterCatalog
         new("UNIQUE_RANDOM_MUNA", "Unique aléatoire Muna", null, "MU", "/img/boosters/unique-random-muna.webp"),
         new("UNIQUE_RANDOM_ORDIS", "Unique aléatoire Ordis", null, "OR", "/img/boosters/unique-random-ordis.webp"),
         new("UNIQUE_RANDOM_YZMIR", "Unique aléatoire Yzmir", null, "YZ", "/img/boosters/unique-random-yzmir.webp"),
+
+        // Alt art booster: draws one of the 24 known EOLECB (Roots of Corruption —
+        // Collector's Box) printings, confirmed by the user as of 2026-09-18. Cover
+        // art: /img/boosters/alt-art-random-eolecb.webp (fan-made "Alt Art" pack art
+        // composited with the "evil-eye" medallion).
+        new("ALT_RANDOM_EOLECB", "Alt art aléatoire Roots of Corruption - Collector's Box", null, null,
+            "/img/boosters/alt-art-random-eolecb.webp", AltArtReferences:
+            [
+                "ALT_EOLECB_A_LY_107_R1",
+                "ALT_EOLECB_A_LY_113_R1",
+                "ALT_EOLECB_A_BR_107_C",
+                "ALT_EOLECB_A_BR_113_R1",
+                "ALT_EOLECB_A_LY_106_C",
+                "ALT_EOLECB_A_BR_117_C",
+                "ALT_EOLECB_A_OR_113_C",
+                "ALT_EOLECB_A_BR_108_R1",
+                "ALT_EOLECB_A_OR_112_C",
+                "ALT_EOLECB_A_LY_108_C",
+                "ALT_EOLECB_A_OR_110_R1",
+                "ALT_EOLECB_A_AX_122_R1",
+                "ALT_EOLECB_A_OR_114_R1",
+                "ALT_EOLECB_A_AX_118_C",
+                "ALT_EOLECB_A_AX_106_C",
+                "ALT_EOLECB_A_AX_108_R1",
+                "ALT_EOLECB_A_YZ_118_R1",
+                "ALT_EOLECB_A_YZ_114_R1",
+                "ALT_EOLECB_A_MU_120_C",
+                "ALT_EOLECB_A_MU_108_R1",
+                "ALT_EOLECB_A_MU_116_R1",
+                "ALT_EOLECB_A_MU_110_C",
+                "ALT_EOLECB_A_YZ_108_C",
+                "ALT_EOLECB_A_YZ_117_C",
+            ]),
     ];
 
     public static BoosterType? Find(string key) => All.FirstOrDefault(b => b.Key == key);

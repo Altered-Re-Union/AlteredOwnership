@@ -191,6 +191,31 @@ public class BoosterTests(OwnershipApiFactory factory) : IClassFixture<Ownership
     }
 
     [Fact]
+    public async Task Opening_an_alt_art_booster_draws_from_its_fixed_reference_pool_without_stock()
+    {
+        // No SeedStockAsync call: this booster type never touches UniqueCardStock —
+        // its pool is a fixed list of non-unique printings, not a finite stock to
+        // reserve from, so opening it must succeed with zero rows seeded there.
+        const string keycloakId = "booster-altart-user";
+        var userId = await SeedUserAsync(keycloakId);
+        await GrantBoosterAsync(userId, "ALT_RANDOM_EOLECB", 3);
+
+        var response = await OpenBoosterAsync(keycloakId, "ALT_RANDOM_EOLECB", quantity: 3);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var opened = (await response.Content.ReadFromJsonAsync<List<OpenedCardDto>>())!;
+        Assert.Equal(3, opened.Count);
+        Assert.All(opened, c =>
+        {
+            Assert.False(c.IsUnique);
+            Assert.StartsWith("ALT_EOLECB_A_", c.CardReference);
+        });
+
+        var inventory = await GetInventoryAsync(keycloakId);
+        Assert.DoesNotContain(inventory, b => b.BoosterTypeKey == "ALT_RANDOM_EOLECB");
+    }
+
+    [Fact]
     public async Task Opening_an_unknown_booster_type_returns_not_found()
     {
         const string keycloakId = "booster-unknown-user";

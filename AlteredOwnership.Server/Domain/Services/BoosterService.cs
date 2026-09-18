@@ -39,7 +39,15 @@ public class BoosterService(EventAppender appender, OwnershipDbContext db, Uniqu
             {
                 var cardReferences = new List<string>();
                 for (var i = 0; i < quantity; i++)
-                    cardReferences.Add(await stock.ReserveRandomAsync(type.Set, type.Faction, c));
+                {
+                    // Alt art pool: unlimited copies of a fixed set of printings, so a
+                    // uniform pick needs no stock reservation — unlike a unique, the same
+                    // reference can be drawn again by anyone at any time.
+                    var reference = type.AltArtReferences is { Count: > 0 } pool
+                        ? pool[Random.Shared.Next(pool.Count)]
+                        : await stock.ReserveRandomAsync(type.Set, type.Faction, c);
+                    cardReferences.Add(reference);
+                }
 
                 var payload = BoosterOpenedEvent.Build(boosterTypeKey, quantity, cardReferences);
                 var newEvent = new OwnershipEvent
