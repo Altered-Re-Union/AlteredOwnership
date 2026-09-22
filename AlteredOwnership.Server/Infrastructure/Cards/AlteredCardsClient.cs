@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace AlteredOwnership.Server.Infrastructure.Cards;
 
@@ -12,16 +13,23 @@ public interface IAlteredCardsClient
 
 public sealed class AlteredCardsClient(HttpClient http) : IAlteredCardsClient
 {
+    // The catalog API expects/returns camelCase field names (e.g. "references", "imagePath");
+    // System.Net.Http.Json's parameterless overloads default to case-sensitive, PascalCase-only
+    // (de)serialization, which silently mismatches every field on both sides of this call — the
+    // request body sends "References" (the API 400s: "references array is required") and, were
+    // that fixed, the response's "reference"/"imagePath"/... would still bind to nothing.
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     public async Task<IReadOnlyList<CardDto>> FetchBatchAsync(
         IReadOnlyCollection<string> references, CancellationToken ct)
     {
         if (references.Count == 0)
             return [];
 
-        var response = await http.PostAsJsonAsync("api/cards/batch", new BatchRequest(references), ct);
+        var response = await http.PostAsJsonAsync("api/cards/batch", new BatchRequest(references), JsonOptions, ct);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<List<CardDto>>(ct) ?? [];
+        return await response.Content.ReadFromJsonAsync<List<CardDto>>(JsonOptions, ct) ?? [];
     }
 
     private sealed record BatchRequest(IReadOnlyCollection<string> References);

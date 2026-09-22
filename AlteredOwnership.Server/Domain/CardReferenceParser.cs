@@ -36,6 +36,15 @@ public static class CardReferenceParser
         "ALT_COREKS_B_YZ_11", "ALT_COREKS_B_YZ_17",
     ];
 
+    // The set segment (ALT_<SET>_...) is always derivable from the reference itself, so it's
+    // used as a fallback when the catalog API reports no set for a card (e.g. EOLECB Collector's
+    // Box printings, which the upstream API returns with a null "set").
+    public static string? ExtractSet(string reference)
+    {
+        var parts = reference.Split('_');
+        return parts.Length >= 2 ? parts[1] : null;
+    }
+
     public static bool IsAlternateArt(string reference)
     {
         if (string.IsNullOrWhiteSpace(reference)) return false;

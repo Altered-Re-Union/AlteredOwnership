@@ -44,7 +44,7 @@ public static class BoosterCatalog
         // Collector's Box) printings, confirmed by the user as of 2026-09-18. Cover
         // art: /img/boosters/alt-art-random-eolecb.webp (fan-made "Alt Art" pack art
         // composited with the "evil-eye" medallion).
-        new("ALT_RANDOM_EOLECB", "Alt art aléatoire Roots of Corruption - Collector's Box", null, null,
+        new("ALT_RANDOM_EOLECB", "Evil Eye booster", null, null,
             "/img/boosters/alt-art-random-eolecb.webp", AltArtReferences:
             [
                 "ALT_EOLECB_A_LY_107_R1",
