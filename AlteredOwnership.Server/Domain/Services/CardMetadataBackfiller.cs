@@ -128,7 +128,7 @@ public class CardMetadataBackfiller(
         Reference = dto.Reference,
         Name = dto.Name ?? new(),
         ImagePath = dto.ImagePath ?? new(),
-        Set = dto.Set?.Reference ?? "",
+        Set = dto.Set?.Reference ?? CardReferenceParser.ExtractSet(dto.Reference) ?? "",
         Faction = dto.Faction?.Code ?? "",
         Rarity = dto.Rarity?.Reference ?? "",
         CardType = dto.CardType?.Reference ?? "",

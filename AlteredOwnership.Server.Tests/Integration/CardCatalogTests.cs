@@ -93,6 +93,23 @@ public class CardCatalogTests(OwnershipApiFactory factory) : IClassFixture<Owner
     }
 
     [Fact]
+    public async Task Backfill_derives_set_from_reference_when_catalog_reports_none()
+    {
+        // EOLECB (Roots of Corruption - Collector's Box) alt-art printings come back from the
+        // catalog API with a null "set" — the set is still derivable from the reference itself.
+        const string reference = "ALT_EOLECB_A_OR_112_C";
+        var recording = new RecordingCardsClient(refs => refs.Select(r => Dto(r) with { Set = null }).ToList());
+        var client = MakeClient(recording);
+
+        var import = await PostImportAsync(client,
+            TimestampLine("2026-05-20 17:14:43") + Header + $"{reference};Hippogriff;Commun;1\n", "catalog-setless");
+        Assert.Equal(HttpStatusCode.NoContent, import.StatusCode);
+
+        var item = Assert.Single(await GetCollectionAsync(client, "", "catalog-setless"));
+        Assert.Equal("EOLECB", item.Set);
+    }
+
+    [Fact]
     public async Task Collection_join_applies_filters_and_language()
     {
         // No backfill: default NullCardsClient, so we seed the catalog explicitly.
