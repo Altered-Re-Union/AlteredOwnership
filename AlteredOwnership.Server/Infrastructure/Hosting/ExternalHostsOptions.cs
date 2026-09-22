@@ -14,4 +14,8 @@ public class ExternalHostsOptions
     // Absolute base URL of the card catalog API (cards.alteredcore.org). Server-only:
     // queried during import to backfill card metadata. Not surfaced to the SPA.
     public string CardsApiBase { get; set; } = "";
+
+    // Absolute base URL of the BGA integration gateway (bga-api.altered.re). Server-only:
+    // queried by the admin "search by BGA username" box to resolve a Reunion user id.
+    public string BgaApiBase { get; set; } = "";
 }

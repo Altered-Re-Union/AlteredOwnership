@@ -117,9 +117,16 @@ a:hover {
     color: var(--ao-accent);
 }
 
-#ao-auth-control {
+#ao-auth-control,
+#ao-lang-control {
     display: inline-flex;
     align-items: center;
+}
+
+.ao-lang-btn {
+    font-size: 1.1rem;
+    line-height: 1;
+    padding-block: 0.3rem;
 }
 
 @media (max-width: 575.98px) {

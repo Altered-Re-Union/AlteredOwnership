@@ -94,6 +94,54 @@ window.AO_I18N = {
     "set.DUSTER": "Seeds of Unity",
     "set.EOLE": "Roots of Corruption",
     "set.FUGUE": "Neverending Journey",
+
+    "admin.pageTitle": "Administration",
+    "admin.accessDenied": "You must be signed in with an administrator account to access this page.",
+    "admin.distributeTitle": "Distribute cards for an event",
+    "admin.targetedPlayers": "Targeted players",
+    "admin.searchPlaceholder": "Email or username",
+    "admin.search": "Search",
+    "admin.searchHint": "Email accepts a partial match, username must be exact.",
+    "admin.bgaSearchLabel": "Or search by BGA username",
+    "admin.bgaSearchPlaceholder": "BGA username",
+    "admin.bgaSearchHint": "The BGA username must be exact and match an already played game.",
+    "admin.bgaNotFound": "No known Reunion id for this BGA username.",
+    "admin.manualIdsLabel": "Or paste Keycloak ids (one per line)",
+    "admin.add": "Add",
+    "admin.reward": "Reward",
+    "admin.modeCard": "Specific card",
+    "admin.modeBooster": "Booster",
+    "admin.cardReferenceLabel": "Card reference(s)",
+    "admin.cardReferenceHint": "Several references allowed, separated by spaces, commas or semicolons.",
+    "admin.quantityPerPlayer": "Quantity (per player)",
+    "admin.boosterTypeLabel": "Booster type",
+    "admin.acquiredFromLabel": "Source (event name)",
+    "admin.giveReward": "Give the reward",
+    "admin.administrators": "Administrators",
+    "admin.currentAdmins": "Current administrators",
+    "admin.promotePlayer": "Promote a player",
+    "admin.manualIdLabel": "Or enter a Keycloak id directly",
+    "admin.keycloakIdPlaceholder": "Keycloak id",
+    "admin.promoteAdminBtn": "Promote to admin",
+    "admin.searching": "Searching…",
+    "admin.searchError": "Search failed.",
+    "admin.noResults": "No results.",
+    "admin.remove": "Remove",
+    "admin.cardRefAndQtyRequired": "Reference and quantity required.",
+    "admin.boosterTypeAndQtyRequired": "Booster type and quantity required.",
+    "admin.selectAtLeastOnePlayer": "Select at least one player.",
+    "admin.addAtLeastOneItem": "Add at least one card or booster.",
+    "admin.sending": "Sending…",
+    "admin.rewardDistributed": "Reward given to every targeted player.",
+    "admin.error": "Error",
+    "admin.networkError": "Network error",
+    "admin.loading": "Loading…",
+    "admin.loadError": "Loading failed.",
+    "admin.updating": "Updating…",
+    "admin.confirmDemote": "Remove admin rights from {name}?",
+    "admin.demoted": "{name} is no longer an admin.",
+    "admin.confirmPromote": "Give admin rights to {name}?",
+    "admin.promoted": "{name} is now an admin.",
   },
   fr: {
     "nav.back": "Retour sur altered.re",
@@ -188,8 +236,148 @@ window.AO_I18N = {
     "set.DUSTER": "Les Graines de l'Unité",
     "set.EOLE": "Les Racines de la Corruption",
     "set.FUGUE": "La Traversée Éternelle",
+
+    "admin.pageTitle": "Administration",
+    "admin.accessDenied": "Vous devez être connecté avec un compte administrateur pour accéder à cette page.",
+    "admin.distributeTitle": "Distribuer des cartes pour un événement",
+    "admin.targetedPlayers": "Joueurs ciblés",
+    "admin.searchPlaceholder": "Email ou pseudo",
+    "admin.search": "Rechercher",
+    "admin.searchHint": "L'email accepte une recherche partielle, le pseudo doit être exact.",
+    "admin.bgaSearchLabel": "Ou rechercher par pseudo BGA",
+    "admin.bgaSearchPlaceholder": "Pseudo BGA",
+    "admin.bgaSearchHint": "Le pseudo BGA doit être exact et correspondre à une partie déjà jouée.",
+    "admin.bgaNotFound": "Aucun identifiant Reunion connu pour ce pseudo BGA.",
+    "admin.manualIdsLabel": "Ou coller des identifiants Keycloak (un par ligne)",
+    "admin.add": "Ajouter",
+    "admin.reward": "Récompense",
+    "admin.modeCard": "Carte spécifique",
+    "admin.modeBooster": "Booster",
+    "admin.cardReferenceLabel": "Référence(s) de la carte",
+    "admin.cardReferenceHint": "Plusieurs références possibles, séparées par espace, virgule ou point-virgule.",
+    "admin.quantityPerPlayer": "Quantité (par joueur)",
+    "admin.boosterTypeLabel": "Type de booster",
+    "admin.acquiredFromLabel": "Origine (nom de l'événement)",
+    "admin.giveReward": "Donner la récompense",
+    "admin.administrators": "Administrateurs",
+    "admin.currentAdmins": "Administrateurs actuels",
+    "admin.promotePlayer": "Promouvoir un joueur",
+    "admin.manualIdLabel": "Ou saisir un identifiant Keycloak directement",
+    "admin.keycloakIdPlaceholder": "id Keycloak",
+    "admin.promoteAdminBtn": "Promouvoir admin",
+    "admin.searching": "Recherche…",
+    "admin.searchError": "Erreur de recherche.",
+    "admin.noResults": "Aucun résultat.",
+    "admin.remove": "Retirer",
+    "admin.cardRefAndQtyRequired": "Référence et quantité requises.",
+    "admin.boosterTypeAndQtyRequired": "Type de booster et quantité requis.",
+    "admin.selectAtLeastOnePlayer": "Sélectionnez au moins un joueur.",
+    "admin.addAtLeastOneItem": "Ajoutez au moins une carte ou un booster.",
+    "admin.sending": "Envoi en cours…",
+    "admin.rewardDistributed": "Récompense distribuée à tous les joueurs ciblés.",
+    "admin.error": "Erreur",
+    "admin.networkError": "Erreur réseau",
+    "admin.loading": "Chargement…",
+    "admin.loadError": "Erreur de chargement.",
+    "admin.updating": "Mise à jour…",
+    "admin.confirmDemote": "Retirer les droits admin de {name} ?",
+    "admin.demoted": "{name} n'est plus admin.",
+    "admin.confirmPromote": "Donner les droits admin à {name} ?",
+    "admin.promoted": "{name} est maintenant admin.",
   },
   es: {},
   it: {},
   de: {},
 };
+
+// Shared engine: lookup/apply (t/applyI18n), language state (setLang/initLang), and a
+// small flag-button control -- built once here so both app.js (public site) and
+// admin.js (admin panel) drive the same dictionary instead of each keeping its own
+// copy. A manual choice (the flag button) is persisted in localStorage and always
+// wins over any auto-detected fallback (e.g. the Keycloak account locale) passed to
+// initLang, so switching the flag sticks across reloads and across the Keycloak
+// locale claim.
+(() => {
+  const SUPPORTED_LANGS = ['en', 'fr'];
+  const DEFAULT_LANG = 'en';
+  const STORAGE_KEY = 'ao_lang';
+  const FLAGS = { en: '🇬🇧', fr: '🇫🇷' };
+  const FLAG_TITLES = { en: 'Passer en français', fr: 'Switch to English' };
+  const html = document.documentElement;
+
+  let currentLang = DEFAULT_LANG;
+  const listeners = new Set();
+
+  const t = (key) => {
+    const dict = window.AO_I18N || {};
+    return (dict[currentLang] && dict[currentLang][key])
+      || (dict[DEFAULT_LANG] && dict[DEFAULT_LANG][key])
+      || key;
+  };
+
+  const applyI18n = () => {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+      el.innerHTML = t(el.dataset.i18nHtml);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      el.title = t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+      el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+    });
+  };
+
+  const renderLangControl = () => {
+    const el = document.getElementById('ao-lang-control');
+    if (!el) return;
+    el.innerHTML =
+      '<button type="button" class="btn btn-sm btn-outline-secondary ao-lang-btn" title="' +
+      FLAG_TITLES[currentLang] + '">' + FLAGS[currentLang] + '</button>';
+    el.querySelector('button').addEventListener('click', () => {
+      const next = currentLang === 'fr' ? 'en' : 'fr';
+      try { localStorage.setItem(STORAGE_KEY, next); } catch { /* per-viewer convenience only */ }
+      setLang(next);
+    });
+  };
+  listeners.add(renderLangControl);
+
+  const setLang = (lang) => {
+    currentLang = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
+    html.lang = currentLang;
+    applyI18n();
+    listeners.forEach((fn) => fn(currentLang));
+  };
+
+  // Maps a raw locale (e.g. "fr", "fr-FR", "de_DE") to a supported UI language, or null.
+  const normalizeLang = (raw) => {
+    if (!raw) return null;
+    const base = String(raw).toLowerCase().split(/[-_]/)[0];
+    return SUPPORTED_LANGS.includes(base) ? base : null;
+  };
+
+  const getStoredLang = () => {
+    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  };
+
+  // Call once at page load with an optional fallback locale (e.g. the Keycloak account
+  // locale) -- a previously chosen flag click always takes priority over it.
+  const initLang = (fallback) => {
+    setLang(getStoredLang() || normalizeLang(fallback) || DEFAULT_LANG);
+  };
+
+  window.AoI18n = {
+    t,
+    applyI18n,
+    setLang,
+    initLang,
+    normalizeLang,
+    onLangChange: (fn) => listeners.add(fn),
+    get currentLang() { return currentLang; },
+  };
+})();

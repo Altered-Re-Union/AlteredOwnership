@@ -4,6 +4,7 @@ using AlteredOwnership.Server.Domain;
 using AlteredOwnership.Server.Domain.Boosters;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Bga;
 using Microsoft.EntityFrameworkCore;
 
 namespace AlteredOwnership.Server.Endpoints;
@@ -41,6 +42,28 @@ public static class AdminEndpoints
 
             var users = await keycloak.SearchAsync(term, ct);
             return Results.Ok(users.Select(u => new AdminUserSearchResult(u.Id, u.Email, u.Pseudo)));
+        });
+
+        // BGA username -> Reunion user id (via altered-bga-api's PlayerGames history) ->
+        // Keycloak profile, so the result has the same shape as the search above and the
+        // caller (admin.js) can treat both result lists identically. A name altered-bga-api
+        // has no Reunion id for (never played a logged game, or the game predates that
+        // field) resolves to no results rather than an error.
+        group.MapGet("users/search-by-bga", async (
+            string bgaName,
+            IBgaApiClient bgaApi,
+            IKeycloakAdminClient keycloak,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(bgaName))
+                return Results.Ok(Array.Empty<AdminUserSearchResult>());
+
+            var reunionId = await bgaApi.ResolveReunionIdAsync(bgaName, ct);
+            if (reunionId is null)
+                return Results.Ok(Array.Empty<AdminUserSearchResult>());
+
+            var kcUser = await keycloak.GetByIdAsync(reunionId, ct);
+            return Results.Ok(new[] { new AdminUserSearchResult(reunionId, kcUser?.Email, kcUser?.Pseudo) });
         });
 
         // Current admins, resolved to display info for the admin page's management UI.

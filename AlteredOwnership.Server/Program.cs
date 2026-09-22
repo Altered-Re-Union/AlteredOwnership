@@ -3,6 +3,7 @@ using AlteredOwnership.Server.Data;
 using AlteredOwnership.Server.Domain.Services;
 using AlteredOwnership.Server.Endpoints;
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Bga;
 using AlteredOwnership.Server.Infrastructure.Cards;
 using AlteredOwnership.Server.Infrastructure.Crypto;
 using AlteredOwnership.Server.Infrastructure.EventSourcing;
@@ -88,6 +89,11 @@ builder.Services.AddOptions<KeycloakAdminOptions>()
     .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName));
 builder.Services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>(
     http => http.BaseAddress = new Uri(externalHosts.AuthBase));
+
+builder.Services.AddOptions<BgaApiOptions>()
+    .Bind(builder.Configuration.GetSection(BgaApiOptions.SectionName));
+builder.Services.AddHttpClient<IBgaApiClient, BgaApiClient>(
+    http => http.BaseAddress = new Uri(externalHosts.BgaApiBase));
 
 builder.Services.AddOwnershipAuth(builder.Configuration, builder.Environment);
 

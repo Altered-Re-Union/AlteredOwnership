@@ -1,4 +1,5 @@
 using AlteredOwnership.Server.Infrastructure.Auth;
+using AlteredOwnership.Server.Infrastructure.Bga;
 using AlteredOwnership.Server.Infrastructure.Cards;
 using AlteredOwnership.Server.Data;
 using Microsoft.AspNetCore.Authentication;
@@ -89,6 +90,11 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
             // Tests that need known Keycloak users override this with a configured stub.
             services.RemoveAll<IKeycloakAdminClient>();
             services.AddSingleton<IKeycloakAdminClient>(new StubKeycloakAdminClient());
+
+            // No network by default: the real client hits the live altered-bga-api gateway.
+            // Tests that need known BGA players override this with a configured stub.
+            services.RemoveAll<IBgaApiClient>();
+            services.AddSingleton<IBgaApiClient>(new StubBgaApiClient());
 
             // Bypass OIDC/Bearer: always authenticate as a fixed test user with both scopes.
             services.AddAuthentication(o =>

@@ -1,53 +1,17 @@
 (() => {
-    const html = document.documentElement;
-    const SUPPORTED_LANGS = ['en', 'fr'];
-    const DEFAULT_LANG = 'en';
+    // i18n engine (dictionary lookup, data-i18n rendering, language state, the flag
+    // toggle) lives in i18n.js, shared with admin.js -- see that file for details.
+    const { t } = window.AoI18n;
 
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
 
-    // i18n
-    let currentLang = DEFAULT_LANG;
-    const t = (key) => {
-        const dict = window.AO_I18N || {};
-        return (dict[currentLang] && dict[currentLang][key])
-            || (dict[DEFAULT_LANG] && dict[DEFAULT_LANG][key])
-            || key;
-    };
-    const applyI18n = () => {
-        document.querySelectorAll('[data-i18n]').forEach((el) => {
-            el.textContent = t(el.dataset.i18n);
-        });
-        document.querySelectorAll('[data-i18n-html]').forEach((el) => {
-            el.innerHTML = t(el.dataset.i18nHtml);
-        });
-        document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-            el.title = t(el.dataset.i18nTitle);
-        });
-        document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
-            el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
-        });
-        document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-            el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
-        });
-    };
-
-    // Language is driven by the Keycloak `locale` claim; there is no on-site override.
-    const applyLang = (lang) => {
-        currentLang = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
-        html.lang = currentLang;
-        applyI18n();
-        // Auth control is built in JS, so it needs to be re-rendered after a language change.
+    // Auth control is built in JS, so it needs to be re-rendered after a language change.
+    window.AoI18n.onLangChange(() => {
         if (currentAuth === 'anonymous') renderLogin();
         else if (currentAuth) renderUser(currentAuth);
-    };
-    // Maps a raw locale (e.g. "fr", "fr-FR", "de_DE") to a supported UI language, or null.
-    const normalizeLang = (raw) => {
-        if (!raw) return null;
-        const base = String(raw).toLowerCase().split(/[-_]/)[0];
-        return SUPPORTED_LANGS.includes(base) ? base : null;
-    };
+    });
 
     // Auth
     const authControl = document.getElementById('ao-auth-control');
@@ -132,9 +96,10 @@
         window.location.replace('/api/auth/login?silent=true&returnUrl=' + encodeURIComponent(currentReturnUrl()));
     };
 
-    // Render in English until /me resolves the Keycloak locale (renderLogin/renderUser
-    // must exist first — the re-render hook needs them).
-    applyLang(DEFAULT_LANG);
+    // Render with a stored flag choice if there is one, English otherwise, until /me
+    // resolves the Keycloak locale (renderLogin/renderUser must exist first — the
+    // re-render hook needs them).
+    window.AoI18n.initLang();
 
     // Other page scripts (history.js, boosters.js) read document.documentElement.lang
     // for their own locale-dependent fetches/formatting. They run as separate deferred
@@ -151,8 +116,9 @@
             const me = await res.json();
             // Token is session-bound, so fetch it before rendering anything that uses it.
             await fetchCsrfToken();
-            // Language comes from the Keycloak account locale; fall back to English.
-            applyLang(normalizeLang(me.locale) || DEFAULT_LANG);
+            // Falls back to the Keycloak account locale, but a stored flag choice (set
+            // by clicking the toggle) always wins over it -- see initLang in i18n.js.
+            window.AoI18n.initLang(me.locale);
             renderUser(me);
         } catch {
             renderLogin();

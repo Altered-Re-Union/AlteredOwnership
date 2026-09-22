@@ -22,40 +22,53 @@
             </a>
 
             <div class="ao-header-controls">
+                <div id="ao-lang-control"></div>
                 <div id="ao-auth-control"></div>
             </div>
         </div>
     </header>
 
     <main id="ao-main" class="container py-4">
-        <h1 class="h3 mb-4">Administration</h1>
+        <h1 class="h3 mb-4" data-i18n="admin.pageTitle">Administration</h1>
 
-        <div id="ao-admin-denied" class="alert alert-warning" hidden>
+        <div id="ao-admin-denied" class="alert alert-warning" hidden data-i18n="admin.accessDenied">
             Vous devez être connecté avec un compte administrateur pour accéder à cette page.
         </div>
 
         <div id="ao-admin-content" hidden>
-            <h2 class="h5 mt-4 mb-3">Distribuer des cartes pour un événement</h2>
+            <h2 class="h5 mt-4 mb-3" data-i18n="admin.distributeTitle">Distribuer des cartes pour un événement</h2>
 
             <section class="card mb-4">
                 <div class="card-body">
-                    <h3 class="h6 card-title">Joueurs ciblés</h3>
+                    <h3 class="h6 card-title" data-i18n="admin.targetedPlayers">Joueurs ciblés</h3>
 
                     <div class="input-group mb-1">
-                        <input id="ao-search-input" type="text" class="form-control" placeholder="Email ou pseudo">
+                        <input id="ao-search-input" type="text" class="form-control" data-i18n-placeholder="admin.searchPlaceholder" placeholder="Email ou pseudo">
                         <button id="ao-search-btn" class="btn btn-outline-secondary" type="button">
-                            <i class="fa-solid fa-magnifying-glass"></i> Rechercher
+                            <i class="fa-solid fa-magnifying-glass"></i> <span data-i18n="admin.search">Rechercher</span>
                         </button>
                     </div>
-                    <div class="form-text mb-2">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
+                    <div class="form-text mb-2" data-i18n="admin.searchHint">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
                     <div id="ao-search-results" class="list-group mb-3"></div>
 
-                    <label for="ao-manual-ids" class="form-label small text-muted">
+                    <label for="ao-bga-search-input" class="form-label small text-muted" data-i18n="admin.bgaSearchLabel">
+                        Ou rechercher par pseudo BGA
+                    </label>
+                    <div class="input-group mb-1">
+                        <input id="ao-bga-search-input" type="text" class="form-control" data-i18n-placeholder="admin.bgaSearchPlaceholder" placeholder="Pseudo BGA">
+                        <button id="ao-bga-search-btn" class="btn btn-outline-secondary" type="button">
+                            <i class="fa-solid fa-magnifying-glass"></i> <span data-i18n="admin.search">Rechercher</span>
+                        </button>
+                    </div>
+                    <div class="form-text mb-2" data-i18n="admin.bgaSearchHint">Le pseudo BGA doit être exact et correspondre à une partie déjà jouée.</div>
+                    <div id="ao-bga-search-results" class="list-group mb-3"></div>
+
+                    <label for="ao-manual-ids" class="form-label small text-muted" data-i18n="admin.manualIdsLabel">
                         Ou coller des identifiants Keycloak (un par ligne)
                     </label>
                     <div class="input-group mb-3">
                         <textarea id="ao-manual-ids" class="form-control" rows="2"></textarea>
-                        <button id="ao-manual-add-btn" class="btn btn-outline-secondary" type="button">Ajouter</button>
+                        <button id="ao-manual-add-btn" class="btn btn-outline-secondary" type="button" data-i18n="admin.add">Ajouter</button>
                     </div>
 
                     <div id="ao-targets" class="d-flex flex-wrap gap-2"></div>
@@ -64,39 +77,39 @@
 
             <section class="card mb-4">
                 <div class="card-body">
-                    <h3 class="h6 card-title">Récompense</h3>
+                    <h3 class="h6 card-title" data-i18n="admin.reward">Récompense</h3>
 
                     <div class="btn-group mb-3" role="group">
                         <input type="radio" class="btn-check" name="ao-mode" id="ao-mode-card" autocomplete="off" checked>
-                        <label class="btn btn-outline-primary" for="ao-mode-card">Carte spécifique</label>
+                        <label class="btn btn-outline-primary" for="ao-mode-card" data-i18n="admin.modeCard">Carte spécifique</label>
                         <input type="radio" class="btn-check" name="ao-mode" id="ao-mode-unique" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="ao-mode-unique">Booster</label>
+                        <label class="btn btn-outline-primary" for="ao-mode-unique" data-i18n="admin.modeBooster">Booster</label>
                     </div>
 
                     <div id="ao-form-card" class="d-flex flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-card-reference">Référence(s) de la carte</label>
+                            <label class="form-label" for="ao-card-reference" data-i18n="admin.cardReferenceLabel">Référence(s) de la carte</label>
                             <textarea id="ao-card-reference" class="form-control" rows="2"
                                 placeholder="ALT_CORE_B_AX_04_C, ALT_CORE_B_AX_05_C ALT_CORE_B_AX_06_C ..."></textarea>
-                            <div class="form-text">Plusieurs références possibles, séparées par espace, virgule ou point-virgule.</div>
+                            <div class="form-text" data-i18n="admin.cardReferenceHint">Plusieurs références possibles, séparées par espace, virgule ou point-virgule.</div>
                         </div>
                         <div>
-                            <label class="form-label" for="ao-card-quantity">Quantité (par joueur)</label>
+                            <label class="form-label" for="ao-card-quantity" data-i18n="admin.quantityPerPlayer">Quantité (par joueur)</label>
                             <input id="ao-card-quantity" type="number" min="1" value="1" class="form-control" style="max-width: 10rem">
                         </div>
-                        <button type="button" id="ao-card-add-btn" class="btn btn-outline-primary align-self-start">Ajouter</button>
+                        <button type="button" id="ao-card-add-btn" class="btn btn-outline-primary align-self-start" data-i18n="admin.add">Ajouter</button>
                     </div>
 
                     <div id="ao-form-unique" class="d-none flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-booster-type">Type de booster</label>
+                            <label class="form-label" for="ao-booster-type" data-i18n="admin.boosterTypeLabel">Type de booster</label>
                             <select id="ao-booster-type" class="form-select"></select>
                         </div>
                         <div>
-                            <label class="form-label" for="ao-booster-quantity">Quantité (par joueur)</label>
+                            <label class="form-label" for="ao-booster-quantity" data-i18n="admin.quantityPerPlayer">Quantité (par joueur)</label>
                             <input id="ao-booster-quantity" type="number" min="1" value="1" class="form-control" style="max-width: 10rem">
                         </div>
-                        <button type="button" id="ao-booster-add-btn" class="btn btn-outline-primary align-self-start">Ajouter</button>
+                        <button type="button" id="ao-booster-add-btn" class="btn btn-outline-primary align-self-start" data-i18n="admin.add">Ajouter</button>
                     </div>
 
                     <div id="ao-reward-items" class="d-flex flex-wrap gap-2 mt-3"></div>
@@ -105,21 +118,21 @@
 
                     <form id="ao-reward-form" class="d-flex flex-column gap-3">
                         <div>
-                            <label class="form-label" for="ao-reward-acquired-from">Origine (nom de l'événement)</label>
+                            <label class="form-label" for="ao-reward-acquired-from" data-i18n="admin.acquiredFromLabel">Origine (nom de l'événement)</label>
                             <input id="ao-reward-acquired-from" type="text" class="form-control" required>
                         </div>
-                        <button type="submit" class="btn btn-primary align-self-start">Donner la récompense</button>
+                        <button type="submit" class="btn btn-primary align-self-start" data-i18n="admin.giveReward">Donner la récompense</button>
                     </form>
 
                     <div id="ao-form-status" class="mt-3" role="status" aria-live="polite"></div>
                 </div>
             </section>
 
-            <h2 class="h5 mt-5 mb-3">Administrateurs</h2>
+            <h2 class="h5 mt-5 mb-3" data-i18n="admin.administrators">Administrateurs</h2>
 
             <section class="card mb-4">
                 <div class="card-body">
-                    <h3 class="h6 card-title">Administrateurs actuels</h3>
+                    <h3 class="h6 card-title" data-i18n="admin.currentAdmins">Administrateurs actuels</h3>
                     <div class="table-responsive mb-3">
                         <table class="table table-sm">
                             <thead><tr><th>Admin</th><th></th></tr></thead>
@@ -127,22 +140,22 @@
                         </table>
                     </div>
 
-                    <h3 class="h6 card-title">Promouvoir un joueur</h3>
+                    <h3 class="h6 card-title" data-i18n="admin.promotePlayer">Promouvoir un joueur</h3>
                     <div class="input-group mb-1">
-                        <input id="ao-admin-search-input" type="text" class="form-control" placeholder="Email ou pseudo">
+                        <input id="ao-admin-search-input" type="text" class="form-control" data-i18n-placeholder="admin.searchPlaceholder" placeholder="Email ou pseudo">
                         <button id="ao-admin-search-btn" class="btn btn-outline-secondary" type="button">
-                            <i class="fa-solid fa-magnifying-glass"></i> Rechercher
+                            <i class="fa-solid fa-magnifying-glass"></i> <span data-i18n="admin.search">Rechercher</span>
                         </button>
                     </div>
-                    <div class="form-text mb-2">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
+                    <div class="form-text mb-2" data-i18n="admin.searchHint">L'email accepte une recherche partielle, le pseudo doit être exact.</div>
                     <div id="ao-admin-search-results" class="list-group mb-3"></div>
 
-                    <label for="ao-admin-manual-id" class="form-label small text-muted">
+                    <label for="ao-admin-manual-id" class="form-label small text-muted" data-i18n="admin.manualIdLabel">
                         Ou saisir un identifiant Keycloak directement
                     </label>
                     <div class="input-group">
-                        <input id="ao-admin-manual-id" type="text" class="form-control" placeholder="id Keycloak">
-                        <button id="ao-admin-manual-add-btn" class="btn btn-outline-secondary" type="button">Promouvoir admin</button>
+                        <input id="ao-admin-manual-id" type="text" class="form-control" data-i18n-placeholder="admin.keycloakIdPlaceholder" placeholder="id Keycloak">
+                        <button id="ao-admin-manual-add-btn" class="btn btn-outline-secondary" type="button" data-i18n="admin.promoteAdminBtn">Promouvoir admin</button>
                     </div>
 
                     <div id="ao-admin-status" class="mt-3" role="status" aria-live="polite"></div>
@@ -152,6 +165,7 @@
     </main>
 
     <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/i18n.js" defer></script>
     <script src="/js/admin.js" defer></script>
 </body>
 </html>
