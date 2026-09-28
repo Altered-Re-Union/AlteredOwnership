@@ -594,6 +594,28 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         Assert.Equal(System.Net.HttpStatusCode.NoContent, accepted.StatusCode);
     }
 
+    // EOLE's Aerolith is a new illustration, not a verbatim reprint of CYCLONE's — unlike
+    // the BISE/CORE Mana Convergence reprints, it must survive the base-set reprint dedup
+    // (see ReseedCardArtCatalogV7) so it's offered alongside the CYCLONE and WCS26 prints.
+    [Fact]
+    public async Task Aerolith_token_group_offers_both_base_set_illustrations_as_infinite()
+    {
+        const string user = "alt-art-aerolith-user";
+
+        using var response = await GetOptionsAsync(user, new AltArtGroupKey(426, "NE", "C"));
+        var group = Assert.Single((await response.Content.ReadFromJsonAsync<List<AltArtOptionsResponse>>())!);
+
+        Assert.Equal(
+            ["ALT_CYCLONE_B_NE_03_C", "ALT_EOLE_B_NE_03_C", "ALT_WCS26_P_NE_03_C"],
+            group.Options.Select(o => o.Reference).Order().ToList());
+        Assert.Null(group.Options.Single(o => o.Reference == "ALT_EOLE_B_NE_03_C").OwnedQuantity);
+        Assert.Single(group.Slots);
+
+        using var accepted = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(426, "NE", "C", ["ALT_EOLE_B_NE_03_C"]));
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, accepted.StatusCode);
+    }
+
     [Fact]
     public async Task ApplyToDeck_adds_a_selected_token_as_its_own_line_item()
     {
