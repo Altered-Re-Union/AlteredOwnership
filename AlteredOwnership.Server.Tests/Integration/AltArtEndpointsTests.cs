@@ -272,6 +272,35 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     }
 
     [Fact]
+    public async Task ApplyToDeck_continues_slots_and_ownership_across_lines_of_the_same_family_in_Global_mode()
+    {
+        const string user = "alt-art-global-mode-split-lines-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;1\n",
+            user);
+
+        using var setPref = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, null, null]));
+        setPref.EnsureSuccessStatusCode();
+
+        using var setMode = await SetPreferenceModeAsync(user, "Global");
+        setMode.EnsureSuccessStatusCode();
+
+        // One family split over two deck lines: the second line must pick up at slot 2
+        // (default) instead of restarting at slot 1 — otherwise both lines would claim
+        // the single owned alt-art copy.
+        var deck = new List<OwnershipCheckItem> { new(LandmarkAlt, 1), new(LandmarkDefault, 1) };
+        using var response = await ApplyToDeckAsync(user, deck);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        Assert.Equal(2, result.Lines.Count);
+        Assert.Equal(new OwnershipCheckItem(LandmarkAlt, 1), Assert.Single(result.Lines[0]));
+        Assert.Equal(new OwnershipCheckItem(LandmarkDefault, 1), Assert.Single(result.Lines[1]));
+    }
+
+    [Fact]
     public async Task Families_lists_multi_art_groups_and_applies_filters()
     {
         const string user = "alt-art-families-user";

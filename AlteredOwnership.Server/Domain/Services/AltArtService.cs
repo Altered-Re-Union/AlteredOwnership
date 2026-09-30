@@ -248,50 +248,67 @@ public class AltArtService(OwnershipDbContext db)
             if (reference is not null)
                 requestedCounts[reference] = requestedCounts.GetValueOrDefault(reference) + 1;
 
-        var owned = await db.CardOwnerships
-            .Where(o => o.UserId == userId && requestedCounts.Keys.Contains(o.CardReference))
-            .AsNoTracking()
-            .ToDictionaryAsync(o => o.CardReference, o => o.Quantity, ct);
-
-        var shortfalls = requestedCounts
-            .Where(kv => !AltArtRules.IsInfinite(rowsByRef[kv.Key]))
-            .Select(kv => new OwnershipShortfall(kv.Key, kv.Value, owned.GetValueOrDefault(kv.Key, 0)))
-            .Where(s => s.Owned < s.Requested)
-            .ToList();
-
-        if (shortfalls.Count > 0)
-            throw new AltArtSlotShortfallException(shortfalls);
-
-        var existing = await db.UserCardArtPreferences
-            .Where(p => p.UserId == userId && p.FamilyId == request.FamilyId
-                && p.Faction == request.Faction && p.Rarity == request.Rarity)
-            .ToDictionaryAsync(p => p.SlotIndex, ct);
-
-        for (var i = 0; i < request.SlotReferences.Count; i++)
+        // The website's widget can fire several saves for the same family in quick
+        // succession. Unserialized, two concurrent requests both saw "no rows yet" and
+        // inserted the same keys (23505 -> 500), or each updated part of the group's
+        // slot rows, leaving a mix neither request asked for (possibly more copies of
+        // an art than owned). A transaction-scoped advisory lock per user+group makes
+        // the read-check-write below atomic. The retrying execution strategy (Aspire's
+        // Npgsql integration) requires the transaction to be opened inside it.
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            var slotIndex = i + 1;
-            var reference = request.SlotReferences[i];
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var lockKey = $"alt-art-preference:{userId}:{request.FamilyId}:{request.Faction}:{request.Rarity}";
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({lockKey}))", ct);
 
-            if (existing.TryGetValue(slotIndex, out var row))
+            var owned = await db.CardOwnerships
+                .Where(o => o.UserId == userId && requestedCounts.Keys.Contains(o.CardReference))
+                .AsNoTracking()
+                .ToDictionaryAsync(o => o.CardReference, o => o.Quantity, ct);
+
+            var shortfalls = requestedCounts
+                .Where(kv => !AltArtRules.IsInfinite(rowsByRef[kv.Key]))
+                .Select(kv => new OwnershipShortfall(kv.Key, kv.Value, owned.GetValueOrDefault(kv.Key, 0)))
+                .Where(s => s.Owned < s.Requested)
+                .ToList();
+
+            if (shortfalls.Count > 0)
+                throw new AltArtSlotShortfallException(shortfalls);
+
+            var existing = await db.UserCardArtPreferences
+                .Where(p => p.UserId == userId && p.FamilyId == request.FamilyId
+                    && p.Faction == request.Faction && p.Rarity == request.Rarity)
+                .ToDictionaryAsync(p => p.SlotIndex, ct);
+
+            for (var i = 0; i < request.SlotReferences.Count; i++)
             {
-                if (reference is null) db.UserCardArtPreferences.Remove(row);
-                else row.PreferredReference = reference;
-            }
-            else if (reference is not null)
-            {
-                db.UserCardArtPreferences.Add(new UserCardArtPreference
+                var slotIndex = i + 1;
+                var reference = request.SlotReferences[i];
+
+                if (existing.TryGetValue(slotIndex, out var row))
                 {
-                    UserId = userId,
-                    FamilyId = request.FamilyId,
-                    Faction = request.Faction,
-                    Rarity = request.Rarity,
-                    SlotIndex = slotIndex,
-                    PreferredReference = reference,
-                });
+                    if (reference is null) db.UserCardArtPreferences.Remove(row);
+                    else row.PreferredReference = reference;
+                }
+                else if (reference is not null)
+                {
+                    db.UserCardArtPreferences.Add(new UserCardArtPreference
+                    {
+                        UserId = userId,
+                        FamilyId = request.FamilyId,
+                        Faction = request.Faction,
+                        Rarity = request.Rarity,
+                        SlotIndex = slotIndex,
+                        PreferredReference = reference,
+                    });
+                }
             }
-        }
 
-        await db.SaveChangesAsync(ct);
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        });
     }
 
     // In PerDeck mode (the default), a deck's own card list already names the exact
@@ -358,6 +375,12 @@ public class AltArtService(OwnershipDbContext db)
                 .AsNoTracking()
                 .ToDictionaryAsync(o => o.CardReference, o => o.Quantity, ct);
 
+        // A family can span several deck lines (e.g. 1× base art + 1× alt art), so both
+        // the owned copies and, in Global mode, the preferred slots are consumed across
+        // all of a group's lines rather than restarting from scratch on each one.
+        var remaining = new Dictionary<string, int>(owned);
+        var copiesAssignedByGroup = new Dictionary<(int, string, string), int>();
+
         var lines = new List<IReadOnlyList<OwnershipCheckItem>>(deck.Count);
         foreach (var item in deck)
         {
@@ -379,7 +402,9 @@ public class AltArtService(OwnershipDbContext db)
                 && groupPrefs.Count > 0)
             {
                 var preferredDefault = ResolveDefaultRow(preferredGroupRows).Reference;
-                lines.Add(ResolvePreferredLine(item, preferredGroupRows, preferredDefault, groupPrefs, owned));
+                var firstCopy = copiesAssignedByGroup.GetValueOrDefault(groupKey);
+                copiesAssignedByGroup[groupKey] = firstCopy + item.Quantity;
+                lines.Add(ResolvePreferredLine(item, firstCopy, preferredGroupRows, preferredDefault, groupPrefs, remaining));
                 continue;
             }
 
@@ -391,11 +416,18 @@ public class AltArtService(OwnershipDbContext db)
 
             var groupRows = rowsByGroup[groupKey];
             var defaultReference = ResolveDefaultRow(groupRows).Reference;
-            var ownedQty = owned.GetValueOrDefault(item.Reference, 0);
+            // This IS already the group's default (no better fallback exists) -> nothing to rewrite.
+            if (item.Reference == defaultReference)
+            {
+                lines.Add([item]);
+                continue;
+            }
 
-            // Owns enough of exactly this print, or this IS already the group's default
-            // (no better fallback exists) -> nothing to rewrite.
-            if (ownedQty >= item.Quantity || item.Reference == defaultReference)
+            var ownedQty = remaining.GetValueOrDefault(item.Reference, 0);
+            remaining[item.Reference] = Math.Max(0, ownedQty - item.Quantity);
+
+            // Owns enough of exactly this print -> nothing to rewrite.
+            if (ownedQty >= item.Quantity)
             {
                 lines.Add([item]);
                 continue;
@@ -425,9 +457,12 @@ public class AltArtService(OwnershipDbContext db)
     // preferences" button used to (one copy per slot, any copies beyond the slot count
     // all pile onto the last slot — see distributeAcrossSlots in deckbuilder.php), then
     // apply the usual ownership-shortfall-falls-back-to-default rule independently to
-    // each resulting (reference, quantity) pair.
+    // each resulting (reference, quantity) pair. firstCopy is how many of the family's
+    // copies earlier deck lines already took, so a family split across several lines
+    // continues on the next slot instead of every line starting over at slot 1; owned
+    // is likewise the stock left over by those earlier lines, and is consumed here.
     private static List<OwnershipCheckItem> ResolvePreferredLine(
-        OwnershipCheckItem item, List<CardArtCatalogEntry> groupRows, string defaultReference,
+        OwnershipCheckItem item, int firstCopy, List<CardArtCatalogEntry> groupRows, string defaultReference,
         Dictionary<int, string> groupPrefs, Dictionary<string, int> owned)
     {
         var rowsByRef = groupRows.ToDictionary(r => r.Reference);
@@ -435,7 +470,7 @@ public class AltArtService(OwnershipDbContext db)
         var slots = ResolveSlots(maxSlots, defaultReference, groupPrefs);
 
         var perReferenceQty = new Dictionary<string, int>();
-        for (var copy = 0; copy < item.Quantity; copy++)
+        for (var copy = firstCopy; copy < firstCopy + item.Quantity; copy++)
         {
             var slot = slots[Math.Min(copy, slots.Count - 1)];
             perReferenceQty[slot.Reference] = perReferenceQty.GetValueOrDefault(slot.Reference) + 1;
@@ -453,6 +488,7 @@ public class AltArtService(OwnershipDbContext db)
             }
 
             var ownedQty = owned.GetValueOrDefault(reference, 0);
+            owned[reference] = Math.Max(0, ownedQty - quantity);
             if (ownedQty >= quantity)
             {
                 result.Add(new OwnershipCheckItem(reference, quantity));
