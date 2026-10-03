@@ -11,7 +11,7 @@ window.AO_I18N = {
     "main.title": "Collection importer",
     "section.export.title": "How do I export my current collection?",
     "section.export.body":
-      '<p>Under GDPR, you can request access to your personal data from Equinox. You need to make the request by emailing <a href="mailto:support@altered.gg">support@altered.gg</a>, but with a significantly longer processing time.</li>',
+      '<p>Under GDPR, you can request access to your personal data from Equinox. You need to make the request by emailing <a href="mailto:support@altered.gg">support@altered.gg</a>, but with a significantly longer processing time.</p>',
     "section.whatImported.title": "What will be imported?",
     "section.whatImported.body":
       "<p>Only alternative arts and uniques will be imported. Commons, rares and exalted cards will not be. Simply because they will be accessible with no quantity limit on every account.</p>",
@@ -153,7 +153,7 @@ window.AO_I18N = {
     "main.title": "Importer ma collection",
     "section.export.title": "Comment exporter ma collection actuelle ?",
     "section.export.body":
-      '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.fr">support@altered.fr</a> :</p>',
+      '<p>Dans le cadre du RGPD, vous pouvez demander l\'accès à vos données personnelles à Equinox en envoyant un mail à <a href="mailto:support@altered.gg">support@altered.gg</a> :</p>',
     "section.whatImported.title": "Qu'est-ce qui sera importé ?",
     "section.whatImported.body":
       "<p>Uniquement les arts alternatifs et les uniques seront importés. Les communes, les rares et les exaltées ne seront pas récupérées, pour la simple raison qu'elles seront accessibles sans limite de quantité sur tous les comptes.</p>",
