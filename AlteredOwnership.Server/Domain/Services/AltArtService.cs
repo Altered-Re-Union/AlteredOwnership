@@ -13,7 +13,7 @@ public class AltArtSlotShortfallException(IReadOnlyList<OwnershipShortfall> shor
     public IReadOnlyList<OwnershipShortfall> Shortfalls { get; } = shortfalls;
 }
 
-public class AltArtService(OwnershipDbContext db)
+public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCache)
 {
     public async Task<List<AltArtFamilyResponse>> GetFamiliesAsync(AltArtFamilyQuery query, string locale, CancellationToken ct)
     {
@@ -326,37 +326,39 @@ public class AltArtService(OwnershipDbContext db)
     // preference spread across several slots) can split one input line into several
     // output lines.
     public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
-        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
+        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct) =>
+        await ApplyToDeckAsync(userId, await GetPreferenceModeAsync(userId, ct), deck, ct);
+
+    // Takes the already-known mode so the request path that has just resolved the user
+    // (CurrentUserAccessor.GetOrProvisionAsync) doesn't spend a query re-reading it. The
+    // catalog comes from the in-memory snapshot, so the whole call is two queries: the
+    // player's preferences (always — tokens need them in either mode) and their ownership.
+    public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
+        Guid userId, AltArtPreferenceMode mode, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
     {
         if (deck.Count == 0)
             return new ApplyToDeckResponse([], []);
 
-        var isGlobalMode = await GetPreferenceModeAsync(userId, ct) == AltArtPreferenceMode.Global;
+        var isGlobalMode = mode == AltArtPreferenceMode.Global;
+        var catalog = await catalogCache.GetAsync(ct);
 
-        var references = deck.Select(i => i.Reference).Distinct().ToList();
-        var catalogByRef = await db.CardArtCatalog
-            .Where(c => references.Contains(c.Reference))
-            .AsNoTracking()
-            .ToDictionaryAsync(c => c.Reference, ct);
+        var catalogByRef = new Dictionary<string, CardArtCatalogEntry>();
+        foreach (var reference in deck.Select(i => i.Reference).Distinct())
+        {
+            if (catalog.ByReference.TryGetValue(reference, out var found))
+                catalogByRef[reference] = found;
+        }
 
         // Only entries that might actually need a fallback (tracked prints) require
-        // knowing their group's default art or the player's owned quantity — except in
-        // Global mode, where even a deck line that already names the (infinite) default
-        // print may still need to be rewritten onto the player's preferred art, so every
-        // referenced family's rows must be loaded too.
-        var trackedEntries = catalogByRef.Values.Where(c => !AltArtRules.IsInfinite(c)).ToList();
+        // knowing the player's owned quantity — except in Global mode, where even a deck
+        // line that already names the (infinite) default print may still need to be
+        // rewritten onto the player's preferred art.
+        var trackedEntries = catalogByRef.Values.Where(c => !catalog.IsInfinite(c)).ToList();
+        var deckGroups = catalogByRef.Values.Select(c => (c.FamilyId, c.Faction, c.Rarity)).ToHashSet();
 
-        var familyIds = trackedEntries.Select(c => c.FamilyId)
-            .Concat(isGlobalMode ? catalogByRef.Values.Select(c => c.FamilyId) : [])
-            .Distinct().ToList();
-        var rowsByGroup = familyIds.Count == 0
-            ? new Dictionary<(int, string, string), List<CardArtCatalogEntry>>()
-            : (await db.CardArtCatalog.Where(c => familyIds.Contains(c.FamilyId)).AsNoTracking().ToListAsync(ct))
-                .GroupBy(r => (r.FamilyId, r.Faction, r.Rarity))
-                .ToDictionary(g => g.Key, g => g.ToList());
-
+        var allPrefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
         var prefsByGroup = isGlobalMode
-            ? await LoadPreferencesByGroupAsync(userId, ct)
+            ? allPrefsByGroup
             : new Dictionary<(int, string, string), Dictionary<int, string>>();
 
         var trackedRefs = trackedEntries.Select(c => c.Reference).ToList();
@@ -364,7 +366,7 @@ public class AltArtService(OwnershipDbContext db)
             // Preferred slot references (which may differ from every deck[i].Reference)
             // need their own ownership counts too, so they can fall back correctly.
             trackedRefs.AddRange(prefsByGroup
-                .Where(kv => rowsByGroup.ContainsKey(kv.Key))
+                .Where(kv => deckGroups.Contains(kv.Key))
                 .SelectMany(kv => kv.Value.Values));
         trackedRefs = trackedRefs.Distinct().ToList();
 
@@ -397,25 +399,24 @@ public class AltArtService(OwnershipDbContext db)
             // since the player's chosen slots are the source of truth for what art they
             // want, not whatever reference happens to be stored on the deck.
             if (isGlobalMode
-                && rowsByGroup.TryGetValue(groupKey, out var preferredGroupRows)
                 && prefsByGroup.TryGetValue(groupKey, out var groupPrefs)
                 && groupPrefs.Count > 0)
             {
-                var preferredDefault = ResolveDefaultRow(preferredGroupRows).Reference;
+                var preferredGroupRows = catalog.RowsByGroup[groupKey];
+                var preferredDefault = catalog.DefaultRowOf(groupKey).Reference;
                 var firstCopy = copiesAssignedByGroup.GetValueOrDefault(groupKey);
                 copiesAssignedByGroup[groupKey] = firstCopy + item.Quantity;
                 lines.Add(ResolvePreferredLine(item, firstCopy, preferredGroupRows, preferredDefault, groupPrefs, remaining));
                 continue;
             }
 
-            if (AltArtRules.IsInfinite(entry))
+            if (catalog.IsInfinite(entry))
             {
                 lines.Add([item]); // untracked/always-available print, no fallback needed
                 continue;
             }
 
-            var groupRows = rowsByGroup[groupKey];
-            var defaultReference = ResolveDefaultRow(groupRows).Reference;
+            var defaultReference = catalog.DefaultRowOf(groupKey).Reference;
             // This IS already the group's default (no better fallback exists) -> nothing to rewrite.
             if (item.Reference == defaultReference)
             {
@@ -447,7 +448,7 @@ public class AltArtService(OwnershipDbContext db)
         // AltArtPreferenceMode). Surfaced separately (never mixed into Lines, which
         // stays strictly positional against the input) as one line item per token the
         // player has explicitly chosen an art for, one copy per token (max 1 slot).
-        var tokens = await ResolveSelectedTokenItemsAsync(userId, ct);
+        var tokens = ResolveSelectedTokenItems(allPrefsByGroup, catalog);
 
         return new ApplyToDeckResponse(lines, tokens);
     }
@@ -508,25 +509,14 @@ public class AltArtService(OwnershipDbContext db)
             .ToList();
     }
 
-    private async Task<List<OwnershipCheckItem>> ResolveSelectedTokenItemsAsync(Guid userId, CancellationToken ct)
+    private static List<OwnershipCheckItem> ResolveSelectedTokenItems(
+        Dictionary<(int, string, string), Dictionary<int, string>> prefsByGroup, CardArtCatalogSnapshot catalog)
     {
-        var prefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
-        if (prefsByGroup.Count == 0)
-            return [];
-
-        var familyIds = prefsByGroup.Keys.Select(k => k.Item1).Distinct().ToList();
-        var cardTypeByGroup = (await db.CardArtCatalog
-                .Where(c => familyIds.Contains(c.FamilyId))
-                .AsNoTracking()
-                .Select(c => new { c.FamilyId, c.Faction, c.Rarity, c.CardType })
-                .ToListAsync(ct))
-            .GroupBy(r => (r.FamilyId, r.Faction, r.Rarity))
-            .ToDictionary(g => g.Key, g => g.First().CardType);
-
         var items = new List<OwnershipCheckItem>();
         foreach (var (groupKey, groupPrefs) in prefsByGroup)
         {
-            if (!(cardTypeByGroup.GetValueOrDefault(groupKey) ?? "").StartsWith("TOKEN", StringComparison.Ordinal))
+            var cardType = catalog.RowsByGroup.TryGetValue(groupKey, out var rows) ? rows[0].CardType : "";
+            if (!cardType.StartsWith("TOKEN", StringComparison.Ordinal))
                 continue;
 
             // Tokens are capped at slot 1 (AltArtRules.MaxSlots), so an explicit choice
@@ -571,7 +561,7 @@ public class AltArtService(OwnershipDbContext db)
     // when a group is made entirely of tracked/alternate prints does this fall back to
     // the earliest (lowest SortOrder) non-promo one, or the earliest overall if every
     // printing is a promo.
-    private static CardArtCatalogEntry ResolveDefaultRow(IReadOnlyList<CardArtCatalogEntry> groupRows)
+    internal static CardArtCatalogEntry ResolveDefaultRow(IReadOnlyList<CardArtCatalogEntry> groupRows)
     {
         var untracked = groupRows.Where(r => !CardReferenceParser.IsAlternateArt(r.Reference)).ToList();
         if (untracked.Count > 0)

@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AlteredOwnership.Server.Infrastructure.Auth;
 
+public readonly record struct CurrentUser(Guid Id, AltArtPreferenceMode AltArtPreferenceMode);
+
 // Resolves (and lazily provisions) the internal user from the Keycloak 'sub' claim.
 // Personal data stays in the Users table; everything downstream uses the internal Guid Id.
 public class CurrentUserAccessor(
@@ -12,7 +14,12 @@ public class CurrentUserAccessor(
     OwnershipDbContext db,
     TimeProvider time)
 {
-    public async Task<Guid> GetOrProvisionInternalIdAsync(CancellationToken ct)
+    public async Task<Guid> GetOrProvisionInternalIdAsync(CancellationToken ct) =>
+        (await GetOrProvisionAsync(ct)).Id;
+
+    // Same lookup, but also returns the alt-art mode in the same query, for callers that
+    // need both (apply-to-deck) and would otherwise spend a second round trip on it.
+    public async Task<CurrentUser> GetOrProvisionAsync(CancellationToken ct)
     {
         var principal = httpContextAccessor.HttpContext?.User
             ?? throw new InvalidOperationException("No HTTP context available");
@@ -23,10 +30,10 @@ public class CurrentUserAccessor(
 
         var existing = await db.Users
             .Where(u => u.KeycloakId == keycloakId)
-            .Select(u => (Guid?)u.Id)
+            .Select(u => (CurrentUser?)new CurrentUser(u.Id, u.AltArtPreferenceMode))
             .FirstOrDefaultAsync(ct);
 
-        if (existing is { } id) return id;
+        if (existing is { } found) return found; // null (not default) when the user doesn't exist yet
 
         var user = new User
         {
@@ -36,6 +43,6 @@ public class CurrentUserAccessor(
         };
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
-        return user.Id;
+        return new CurrentUser(user.Id, user.AltArtPreferenceMode);
     }
 }

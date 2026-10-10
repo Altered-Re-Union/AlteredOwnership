@@ -177,8 +177,8 @@ public static class AltArtEndpoints
             AltArtService altArts,
             CancellationToken ct) =>
         {
-            var userId = await currentUser.GetOrProvisionInternalIdAsync(ct);
-            return Results.Ok(await altArts.ApplyToDeckAsync(userId, deck, ct));
+            var user = await currentUser.GetOrProvisionAsync(ct);
+            return Results.Ok(await altArts.ApplyToDeckAsync(user.Id, user.AltArtPreferenceMode, deck, ct));
         })
         .RequireAuthorization(AuthConstants.ReadPolicy)
         // Read-only transformation of caller-supplied data, no state change — same

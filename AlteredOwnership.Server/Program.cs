@@ -64,6 +64,7 @@ builder.Services.AddScoped<EventAppender>();
 builder.Services.AddScoped<UserProvisioningService>();
 builder.Services.AddScoped<UniqueStockService>();
 builder.Services.AddScoped<EventHistoryReader>();
+builder.Services.AddSingleton<CardArtCatalogCache>();
 builder.Services.AddScoped<AltArtService>();
 builder.Services.AddScoped<AltArtPreferenceReconciler>();
 builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
@@ -84,6 +85,7 @@ var externalHosts = builder.Configuration.GetSection(ExternalHostsOptions.Sectio
 builder.Services.AddHttpClient<IAlteredCardsClient, AlteredCardsClient>(
     http => http.BaseAddress = new Uri(externalHosts.CardsApiBase));
 builder.Services.AddHostedService<CardCatalogRefreshService>();
+builder.Services.AddHostedService<AltArtWarmupService>();
 
 builder.Services.AddOptions<KeycloakAdminOptions>()
     .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName));
