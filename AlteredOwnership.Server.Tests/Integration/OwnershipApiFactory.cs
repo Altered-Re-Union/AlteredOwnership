@@ -73,6 +73,8 @@ public class OwnershipApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:ownershipdb", _postgres.GetConnectionString());
         builder.UseSetting("EquinoxImport:DecryptionKeyHex", DecryptionKeyHex);
+        // The warm-up would hit the real Keycloak and race the tests' own fixtures.
+        builder.UseSetting("Warmup:Enabled", "false");
 
         builder.ConfigureTestServices(services =>
         {
