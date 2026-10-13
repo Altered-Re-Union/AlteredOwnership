@@ -519,6 +519,11 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
             if (!cardType.StartsWith("TOKEN", StringComparison.Ordinal))
                 continue;
 
+            // Mana Orbs don't exist in BGA and aren't handled there, so they're never
+            // added to the deck alongside the other tokens.
+            if (cardType == "TOKEN_MANA")
+                continue;
+
             // Tokens are capped at slot 1 (AltArtRules.MaxSlots), so an explicit choice
             // can only ever live there.
             if (groupPrefs.TryGetValue(1, out var chosenReference))
