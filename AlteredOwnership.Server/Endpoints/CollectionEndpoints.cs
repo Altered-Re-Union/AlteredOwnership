@@ -21,7 +21,15 @@ public record CardCollectionItemResponse(
     int? MainCost, int? RecallCost, int? Forest, int? Mountain, int? Ocean);
 
 // One requested card and how many copies the caller needs.
-public record OwnershipCheckItem(string Reference, int Quantity);
+// Pinned (apply-to-deck only, optional, never echoed back): this print was chosen for this
+// deck specifically (a DeckApi altArtOverrides entry, or an alt-art reference stored in the
+// deck list), so the player's global preferences don't replace it; ownership still applies
+// (copies not owned fall back to the family's default art).
+public record OwnershipCheckItem(
+    string Reference,
+    int Quantity,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool Pinned = false);
 
 // A card the caller asked for but owns too few of (Owned < Requested).
 public record OwnershipShortfall(string Reference, int Requested, int Owned);
