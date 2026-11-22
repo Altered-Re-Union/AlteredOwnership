@@ -50,6 +50,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     private record AltArtPreferenceModeResponse(string Mode);
     private record SetAltArtPreferenceModeRequest(string Mode);
     private record OwnershipCheckItem(string Reference, int Quantity);
+    private record PinnableItem(string Reference, int Quantity, bool Pinned);
     private record OwnershipShortfall(string Reference, int Requested, int Owned);
     private record ApplyToDeckResponse(List<List<OwnershipCheckItem>> Lines, List<OwnershipCheckItem> Tokens);
     private record AltArtReferenceGroup(string Reference, int FamilyId, string Faction, string Rarity);
@@ -115,7 +116,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
         return await _client.SendAsync(request);
     }
 
-    private async Task<HttpResponseMessage> ApplyToDeckAsync(string user, List<OwnershipCheckItem> deck)
+    private async Task<HttpResponseMessage> ApplyToDeckAsync<T>(string user, List<T> deck)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/alt-arts/apply-to-deck")
         {
@@ -189,7 +190,7 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
     }
 
     [Fact]
-    public async Task ApplyToDeck_ignores_global_preference_in_PerDeck_mode()
+    public async Task ApplyToDeck_applies_global_preferences_whatever_the_legacy_mode()
     {
         const string user = "alt-art-perdeck-mode-user";
         await ImportAsync(
@@ -201,15 +202,60 @@ public class AltArtEndpointsTests(OwnershipApiFactory factory) : IClassFixture<O
             new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, LandmarkAlt]));
         setPref.EnsureSuccessStatusCode();
 
-        // The deck itself asks for the plain default print — in the default PerDeck
-        // mode, the global preference above must be ignored entirely.
+        // The player is still in the (legacy, default) PerDeck mode: there is no mode anymore,
+        // an unpinned deck line always gets the global preferences.
         var deck = new List<OwnershipCheckItem> { new(LandmarkDefault, 3) };
         using var response = await ApplyToDeckAsync(user, deck);
         response.EnsureSuccessStatusCode();
 
         var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
         var line = Assert.Single(Assert.Single(result.Lines));
-        Assert.Equal(new OwnershipCheckItem(LandmarkDefault, 3), line);
+        Assert.Equal(new OwnershipCheckItem(LandmarkAlt, 3), line);
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_pinned_line_keeps_the_decks_print_over_global_preferences()
+    {
+        const string user = "alt-art-pinned-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;3\n",
+            user);
+
+        using var setPref = await SetPreferenceAsync(user,
+            new SetAltArtPreferenceRequest(4, "LY", "R", [LandmarkAlt, LandmarkAlt, LandmarkAlt]));
+        setPref.EnsureSuccessStatusCode();
+
+        // A deck-level choice (DeckApi override) of the default art wins over the global
+        // preference; the unpinned line of another copy count still gets the preference.
+        using var response = await ApplyToDeckAsync(user, new List<PinnableItem>
+        {
+            new(LandmarkDefault, 2, Pinned: true),
+        });
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        Assert.Equal(new OwnershipCheckItem(LandmarkDefault, 2), Assert.Single(Assert.Single(result.Lines)));
+    }
+
+    [Fact]
+    public async Task ApplyToDeck_pinned_alt_art_still_requires_ownership()
+    {
+        const string user = "alt-art-pinned-shortfall-user";
+        await ImportAsync(
+            TimestampLine() + Header +
+            $"{LandmarkAlt};Icebound Tundra;Rare;1\n",
+            user);
+
+        // Pinned to the alt art but only 1 copy owned: the 2 others fall back to the default art.
+        using var response = await ApplyToDeckAsync(user, new List<PinnableItem> { new(LandmarkAlt, 3, Pinned: true) });
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<ApplyToDeckResponse>())!;
+        var line = Assert.Single(result.Lines);
+        Assert.Contains(line, i => i.Reference == LandmarkAlt && i.Quantity == 1);
+        Assert.Contains(line, i => i.Reference == LandmarkDefault && i.Quantity == 2);
+        Assert.DoesNotContain("pinned", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

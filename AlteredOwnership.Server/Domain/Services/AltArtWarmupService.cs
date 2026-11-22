@@ -86,7 +86,7 @@ public sealed class AltArtWarmupService(
         if (tracked is not null)
         {
             _ = await altArts.ApplyToDeckAsync(
-                Guid.Empty, AltArtPreferenceMode.PerDeck, [new OwnershipCheckItem(tracked.Reference, 1)], ct);
+                Guid.Empty, [new OwnershipCheckItem(tracked.Reference, 1)], ct);
         }
     }
 

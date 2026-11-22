@@ -325,21 +325,19 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
     // per-type deck view) rely on this positional correlation, since a shortfall (or a
     // preference spread across several slots) can split one input line into several
     // output lines.
+    // Resolves the art BGA shows for each deck line. There is no per-player mode anymore:
+    // - a pinned line (chosen for this deck: DeckApi override or alt-art reference in the
+    //   deck list) keeps its print;
+    // - any other line gets the player's global preferences for its family, when set;
+    // and in both cases copies the player doesn't own fall back to the family's default art.
+    // The catalog comes from the in-memory snapshot, so the whole call is two queries: the
+    // player's preferences and their ownership.
     public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
-        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct) =>
-        await ApplyToDeckAsync(userId, await GetPreferenceModeAsync(userId, ct), deck, ct);
-
-    // Takes the already-known mode so the request path that has just resolved the user
-    // (CurrentUserAccessor.GetOrProvisionAsync) doesn't spend a query re-reading it. The
-    // catalog comes from the in-memory snapshot, so the whole call is two queries: the
-    // player's preferences (always — tokens need them in either mode) and their ownership.
-    public async Task<ApplyToDeckResponse> ApplyToDeckAsync(
-        Guid userId, AltArtPreferenceMode mode, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
+        Guid userId, IReadOnlyList<OwnershipCheckItem> deck, CancellationToken ct)
     {
         if (deck.Count == 0)
             return new ApplyToDeckResponse([], []);
 
-        var isGlobalMode = mode == AltArtPreferenceMode.Global;
         var catalog = await catalogCache.GetAsync(ct);
 
         var catalogByRef = new Dictionary<string, CardArtCatalogEntry>();
@@ -350,24 +348,22 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
         }
 
         // Only entries that might actually need a fallback (tracked prints) require
-        // knowing the player's owned quantity — except in Global mode, where even a deck
-        // line that already names the (infinite) default print may still need to be
-        // rewritten onto the player's preferred art.
+        // knowing the player's owned quantity — plus, for unpinned lines, the preferred
+        // prints they may be rewritten onto (even from the (infinite) default print).
         var trackedEntries = catalogByRef.Values.Where(c => !catalog.IsInfinite(c)).ToList();
-        var deckGroups = catalogByRef.Values.Select(c => (c.FamilyId, c.Faction, c.Rarity)).ToHashSet();
 
-        var allPrefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
-        var prefsByGroup = isGlobalMode
-            ? allPrefsByGroup
-            : new Dictionary<(int, string, string), Dictionary<int, string>>();
+        var prefsByGroup = await LoadPreferencesByGroupAsync(userId, ct);
+        var unpinnedGroups = deck.Where(i => !i.Pinned && catalogByRef.ContainsKey(i.Reference))
+            .Select(i => catalogByRef[i.Reference])
+            .Select(c => (c.FamilyId, c.Faction, c.Rarity))
+            .ToHashSet();
 
         var trackedRefs = trackedEntries.Select(c => c.Reference).ToList();
-        if (isGlobalMode)
-            // Preferred slot references (which may differ from every deck[i].Reference)
-            // need their own ownership counts too, so they can fall back correctly.
-            trackedRefs.AddRange(prefsByGroup
-                .Where(kv => deckGroups.Contains(kv.Key))
-                .SelectMany(kv => kv.Value.Values));
+        // Preferred slot references (which may differ from every deck[i].Reference) need
+        // their own ownership counts too, so they can fall back correctly.
+        trackedRefs.AddRange(prefsByGroup
+            .Where(kv => unpinnedGroups.Contains(kv.Key))
+            .SelectMany(kv => kv.Value.Values));
         trackedRefs = trackedRefs.Distinct().ToList();
 
         var owned = trackedRefs.Count == 0
@@ -378,14 +374,15 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
                 .ToDictionaryAsync(o => o.CardReference, o => o.Quantity, ct);
 
         // A family can span several deck lines (e.g. 1× base art + 1× alt art), so both
-        // the owned copies and, in Global mode, the preferred slots are consumed across
+        // the owned copies and the preferred slots (unpinned lines) are consumed across
         // all of a group's lines rather than restarting from scratch on each one.
         var remaining = new Dictionary<string, int>(owned);
         var copiesAssignedByGroup = new Dictionary<(int, string, string), int>();
 
         var lines = new List<IReadOnlyList<OwnershipCheckItem>>(deck.Count);
-        foreach (var item in deck)
+        foreach (var requested in deck)
         {
+            var item = requested with { Pinned = false };
             if (!catalogByRef.TryGetValue(item.Reference, out var entry))
             {
                 lines.Add([item]); // not a catalog reference
@@ -394,11 +391,10 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
 
             var groupKey = (entry.FamilyId, entry.Faction, entry.Rarity);
 
-            // In Global mode, an explicit family preference always wins — even over a
-            // deck line that already names the group's own (infinite) default print —
-            // since the player's chosen slots are the source of truth for what art they
-            // want, not whatever reference happens to be stored on the deck.
-            if (isGlobalMode
+            // On an unpinned line, an explicit family preference always wins — even over a
+            // deck line that already names the group's own (infinite) default print. A
+            // pinned line was chosen for this deck and keeps its print (ownership rules below).
+            if (!requested.Pinned
                 && prefsByGroup.TryGetValue(groupKey, out var groupPrefs)
                 && groupPrefs.Count > 0)
             {
@@ -448,7 +444,7 @@ public class AltArtService(OwnershipDbContext db, CardArtCatalogCache catalogCac
         // AltArtPreferenceMode). Surfaced separately (never mixed into Lines, which
         // stays strictly positional against the input) as one line item per token the
         // player has explicitly chosen an art for, one copy per token (max 1 slot).
-        var tokens = ResolveSelectedTokenItems(allPrefsByGroup, catalog);
+        var tokens = ResolveSelectedTokenItems(prefsByGroup, catalog);
 
         return new ApplyToDeckResponse(lines, tokens);
     }
