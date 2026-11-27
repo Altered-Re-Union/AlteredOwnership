@@ -72,6 +72,27 @@ public static class BoosterCatalog
                 "ALT_EOLECB_A_YZ_108_C",
                 "ALT_EOLECB_A_YZ_117_C",
             ]),
+
+        // Alt art booster: draws one of the 12 full-art base heroes (DUSTER + EOLE
+        // promo printings), confirmed by the user as of 2026-11-27. Cover art:
+        // /img/boosters/alt-art-random-heroes-full-art.webp (fan-made "Alt Art" pack
+        // art composited with the "Heros Full Alt Art" medallion).
+        new("ALT_RANDOM_HEROES_FULL_ART", "Full art base hero", null, null,
+            "/img/boosters/alt-art-random-heroes-full-art.webp", AltArtReferences:
+            [
+                "ALT_DUSTER_P_AX_85_C",
+                "ALT_DUSTER_P_BR_65_C",
+                "ALT_DUSTER_P_LY_65_C",
+                "ALT_DUSTER_P_MU_85_C",
+                "ALT_DUSTER_P_OR_85_C",
+                "ALT_DUSTER_P_YZ_65_C",
+                "ALT_EOLE_P_MU_65_C",
+                "ALT_EOLE_P_LY_105_C",
+                "ALT_EOLE_P_BR_105_C",
+                "ALT_EOLE_P_AX_65_C",
+                "ALT_EOLE_P_OR_65_C",
+                "ALT_EOLE_P_YZ_105_C",
+            ]),
     ];
 
     public static BoosterType? Find(string key) => All.FirstOrDefault(b => b.Key == key);
